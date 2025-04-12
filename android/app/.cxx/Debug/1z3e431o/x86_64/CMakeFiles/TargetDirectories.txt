@@ -1,0 +1,2 @@
+C:/Users/HP/Desktop/tesi/waterstation_app/android/app/.cxx/Debug/1z3e431o/x86_64/CMakeFiles/edit_cache.dir
+C:/Users/HP/Desktop/tesi/waterstation_app/android/app/.cxx/Debug/1z3e431o/x86_64/CMakeFiles/rebuild_cache.dir
