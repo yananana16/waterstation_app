@@ -67,37 +67,19 @@ class _DisplayStatusScreenState extends State<DisplayStatusScreen> {
               ? _buildSubmitRequirementScreen()
               : _status == 'pending_approval'
                   ? _buildPendingApprovalScreen()
-                  : _buildBlockedAccessScreen(),
+                  : _redirectToLoginScreen(), // Redirect to login if blocked access
     );
   }
 
-  /// ❌ **Blocked Access UI**
-  Widget _buildBlockedAccessScreen() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text(
-            'ACCESS DENIED',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.red,
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'You cannot access this screen yet.',
-            style: TextStyle(fontSize: 16),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _logout,
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
+  /// Redirect to Login Screen for Blocked Access
+  Widget _redirectToLoginScreen() {
+    Future.delayed(Duration.zero, () {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
+    });
+    return const Center(child: CircularProgressIndicator());
   }
 
   /// 📌 **Submit Requirement Screen**

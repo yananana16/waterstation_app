@@ -21,7 +21,8 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
   Map<String, Uint8List?> selectedFiles = {};
   Map<String, String?> selectedFileNames = {};
   Map<String, String?> uploadedUrls = {};
-  String? customUID;
+  String? stationOwnerDocID; // Store the document ID of the station owner
+  bool isTermsAccepted = false; // Track terms acceptance
 
   final Map<String, Map<String, String>> documentLabels = {
   'finished_bacteriological': {
@@ -66,16 +67,19 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
   @override
   void initState() {
     super.initState();
-    fetchUserData();
+    fetchStationOwnerData();
   }
 
-  Future<void> fetchUserData() async {
+  Future<void> fetchStationOwnerData() async {
     String uid = auth.currentUser!.uid;
-    DocumentSnapshot userDoc = await firestore.collection('users').doc(uid).get();
+    QuerySnapshot querySnapshot = await firestore
+        .collection('station_owners')
+        .where('userId', isEqualTo: uid) // Match the userId field
+        .get();
 
-    if (userDoc.exists) {
+    if (querySnapshot.docs.isNotEmpty) {
       setState(() {
-        customUID = userDoc['customUID'];
+        stationOwnerDocID = querySnapshot.docs.first.id; // Get the document ID
       });
       fetchUserComplianceFiles();
     }
@@ -93,9 +97,16 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
   }
 
   Future<void> uploadAllFiles() async {
-    if (customUID == null) {
+    if (!isTermsAccepted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: Custom UID not found.')),
+        SnackBar(content: Text('You must accept the terms and conditions.')),
+      );
+      return;
+    }
+
+    if (stationOwnerDocID == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: Station owner data not found.')),
       );
       return;
     }
@@ -107,7 +118,6 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
       return;
     }
 
-    String uid = auth.currentUser!.uid;
     Map<String, String> newUploadedUrls = {};
 
     List<Future<void>> uploadTasks = selectedFiles.keys.map((category) async {
@@ -119,7 +129,7 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
 
     await Future.wait(uploadTasks);
 
-    await firestore.collection('compliance_uploads').doc(uid).set(
+    await firestore.collection('compliance_uploads').doc(stationOwnerDocID).set(
       newUploadedUrls,
       SetOptions(merge: true),
     );
@@ -143,10 +153,10 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
     try {
       String fileName = selectedFileNames[category]!;
       String fileExtension = fileName.split('.').last;
-      String storageFileName = "${customUID}_$category.$fileExtension";
-      String storagePath = 'uploads/$customUID/$storageFileName';
+      String storageFileName = "${stationOwnerDocID}_$category.$fileExtension";
+      String storagePath = 'uploads/$stationOwnerDocID/$storageFileName';
 
-      await deleteOldFile(customUID!, category);
+      await deleteOldFile(category);
 
       await supabase.storage.from('compliance_docs').uploadBinary(
         storagePath,
@@ -163,17 +173,18 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
     }
   }
 
-  Future<void> deleteOldFile(String customUID, String category) async {
+  Future<void> deleteOldFile(String category) async {
     try {
-      String uid = auth.currentUser!.uid;
-      DocumentSnapshot doc = await firestore.collection('compliance_uploads').doc(uid).get();
+      if (stationOwnerDocID == null) return;
+
+      DocumentSnapshot doc = await firestore.collection('compliance_uploads').doc(stationOwnerDocID).get();
       if (doc.exists && doc.data() != null) {
         String? existingFileUrl = (doc.data() as Map<String, dynamic>)[category];
 
         if (existingFileUrl != null) {
           Uri uri = Uri.parse(existingFileUrl);
           String fileName = uri.pathSegments.last;
-          String filePath = 'uploads/$customUID/$fileName';
+          String filePath = 'uploads/$stationOwnerDocID/$fileName';
 
           await supabase.storage.from('compliance_docs').remove([filePath]);
         }
@@ -184,8 +195,12 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
   }
 
   Future<void> fetchUserComplianceFiles() async {
-    String uid = auth.currentUser!.uid;
-    DocumentSnapshot doc = await firestore.collection('compliance_uploads').doc(uid).get();
+    if (stationOwnerDocID == null) return;
+
+    DocumentSnapshot doc = await firestore
+        .collection('compliance_uploads')
+        .doc(stationOwnerDocID)
+        .get();
 
     if (doc.exists) {
       setState(() {
@@ -195,10 +210,12 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
   }
 
   Future<void> checkAndUpdateApprovalStatus() async {
-    if (customUID == null) return;
+    if (stationOwnerDocID == null) return;
 
-    String uid = auth.currentUser!.uid;
-    DocumentSnapshot doc = await firestore.collection('compliance_uploads').doc(uid).get();
+    DocumentSnapshot doc = await firestore
+        .collection('compliance_uploads')
+        .doc(stationOwnerDocID)
+        .get();
 
     if (!doc.exists) return;
 
@@ -207,7 +224,7 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
     bool allUploaded = documentLabels.keys.every((category) => uploadedDocs.containsKey(category));
 
     if (allUploaded) {
-      await firestore.collection('users').doc(uid).update({'status': 'pending_approval'});
+      await firestore.collection('station_owners').doc(stationOwnerDocID).update({'status': 'pending_approval'});
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('All documents submitted! Status updated to Pending Approval.')),
@@ -240,10 +257,35 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
               ),
             ),
             SizedBox(height: 20),
+            Row(
+              children: [
+                Checkbox(
+                  value: isTermsAccepted,
+                  onChanged: (value) {
+                    setState(() {
+                      isTermsAccepted = value ?? false;
+                    });
+                  },
+                ),
+                Expanded(
+                  child: Text(
+                    'I agree to the terms and conditions.',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: uploadAllFiles,
               icon: Icon(Icons.upload),
-              label: Text('Upload All'),
+              label: Text(
+                'Upload All',
+                style: TextStyle(
+                  color: Colors.white, // Set font color to white
+                  fontWeight: FontWeight.bold, // Set font weight to bold
+                ),
+              ),
               style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.symmetric(vertical: 14, horizontal: 24),
                 backgroundColor: Colors.blueAccent,

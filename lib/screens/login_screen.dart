@@ -5,6 +5,7 @@ import 'customer/customer_home_screen.dart';
 import 'station/station_home_screen.dart'; // Assuming this is the new screen
 import 'registration_screen.dart';
 import 'station/displayingStatus.dart';
+import 'station/submit_compliance_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -43,47 +44,52 @@ class _LoginScreenState extends State<LoginScreen> {
       if (userCredential.user != null) {
         String uid = userCredential.user!.uid;
 
-        DocumentSnapshot userDoc = await _firestore.collection('users').doc(uid).get();
+        // Check if the user exists in the "station_owners" collection using the userId field
+        QuerySnapshot stationOwnerQuery = await _firestore
+            .collection('station_owners')
+            .where('userId', isEqualTo: uid)
+            .get();
 
-        if (userDoc.exists) {
-          String role = userDoc['role'];
+        if (stationOwnerQuery.docs.isNotEmpty) {
+          DocumentSnapshot stationOwnerDoc = stationOwnerQuery.docs.first;
+          String status = stationOwnerDoc['status'];
 
           _showMessage("Login successful!");
 
-          if (role == 'customer') {
-            // Navigate to CustomerHomeScreen if role is 'customer'
+          if (status == 'approved') {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const CustomerHomeScreen()),
+              MaterialPageRoute(builder: (context) => const StationHomeScreen()),
             );
-          } else if (role == 'station_owner') {
-            // Proceed with checking the approval status if the role is 'station_owner'
-            String status = userDoc['status'];
-
-            if (status == 'approved') {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const StationHomeScreen()), // New screen for station owners
-              );
-            } else if (status == 'submit_req') {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const DisplayStatusScreen()), // Screen for submit_req status
-              );
-            } else if (status == 'pending_approval') {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const DisplayStatusScreen()),
-              );
-            } else {
-              _showMessage("Invalid status. Please contact support.");
-            }
+          } else if (status == 'submitreq') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const SubmitCompliancePage()),
+            );
+          } else if (status == 'pending_approval') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const DisplayStatusScreen()),
+            );
           } else {
-            _showMessage("Invalid role. Please contact support.");
+            _showMessage("Invalid status. Please contact support.");
           }
-        } else {
-          _showMessage("User data not found.");
+          return;
         }
+
+        // Check if the user exists in the "customers" collection
+        DocumentSnapshot customerDoc = await _firestore.collection('customers').doc(uid).get();
+        if (customerDoc.exists) {
+          _showMessage("Login successful!");
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const CustomerHomeScreen()),
+          );
+          return;
+        }
+
+        // If the user is not found in either collection
+        _showMessage("User data not found. Please contact support.");
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage = "Login failed. Please try again.";

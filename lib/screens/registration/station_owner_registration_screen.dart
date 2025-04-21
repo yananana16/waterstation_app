@@ -41,8 +41,11 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
     {'id': 'district_009', 'name': 'Mandurriao'},
   ];
 
-  // Function to register the station owner
-  Future<void> _registerStationOwner() async {
+  bool _isPasswordVisible = false; // Added for password visibility toggle
+  bool _isConfirmPasswordVisible = false; // Added for confirm password visibility toggle
+
+  // Function to handle registration
+  void _registerStationOwner() async {
     if (_stationNameController.text.isEmpty ||
         _lastNameController.text.isEmpty ||
         _firstNameController.text.isEmpty ||
@@ -63,50 +66,67 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
     setState(() => _isLoading = true);
 
     try {
+      // Create user in Firebase Authentication
       UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      String uid = userCredential.user!.uid;
-      String customUID = "station_owner_${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}";
+      // Generate custom document ID
+      String documentId = "station_owner_${DateTime.now().millisecondsSinceEpoch}";
 
-      await _firestore.collection('users').doc(uid).set({
-        'compliance_approved': false,
-        'uid': uid,
-        'customUID': customUID,
-        'role': 'station_owner',
+      // Save user details in Firestore
+      await _firestore.collection('station_owners').doc(documentId).set({
         'stationName': _stationNameController.text.trim(),
-        'district_president': false,
-        'federated_president': false,
         'lastName': _lastNameController.text.trim(),
         'firstName': _firstNameController.text.trim(),
         'middleInitial': _middleIniController.text.trim(),
         'phone': _phoneController.text.trim(),
         'email': _emailController.text.trim(),
         'districtID': _selectedDistrict,
-        'status': 'submit_req',
-        'createdAt': FieldValue.serverTimestamp(),
-        'location': _selectedLocation != null
-            ? GeoPoint(_selectedLocation!.latitude, _selectedLocation!.longitude)
-            : null,
+        'location': {
+          'latitude': _selectedLocation!.latitude,
+          'longitude': _selectedLocation!.longitude,
+        },
+        'userId': userCredential.user!.uid, // Link to Firebase Authentication user ID
+        'createdAt': FieldValue.serverTimestamp(), // Add createdAt field
+        'status': 'submitreq', // Add status field
       });
 
-      _showMessage("Registration successful! Waiting for admin approval.");
-      Future.microtask(() => Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => LoginScreen()),
-    ));
-    } on FirebaseAuthException catch (e) {
-      String errorMessage = "Registration failed. Please try again.";
-      if (e.code == 'email-already-in-use') {
-        errorMessage = "This email is already registered.";
-      } else if (e.code == 'weak-password') {
-        errorMessage = "Password should be at least 6 characters.";
-      }
-      _showMessage(errorMessage);
+      // Show success dialog with improved UI
+      showDialog(
+        context: context,
+        barrierDismissible: false, // Prevent dismissing the dialog
+        builder: (context) => WillPopScope(
+          onWillPop: () async => false, // Disable back button
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.check_circle, color: Colors.green, size: 60), // Success icon
+                SizedBox(height: 20),
+                Text(
+                  "Registration Successful!",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Navigate to login screen after 2 seconds
+      await Future.delayed(const Duration(seconds: 2));
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
+    } catch (e) {
+      _showMessage("Registration failed: ${e.toString()}");
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
     }
   }
 
@@ -117,75 +137,86 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Register Station Owner')),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Create Your Account',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
+      appBar: AppBar(
+        title: const Text(
+          'Create Your Account',
+          style: TextStyle(color: Colors.blue), // Changed app bar title font color to blue
+        ),
+        iconTheme: const IconThemeData(color: Colors.blue), // Changed app bar icon color to blue
+        backgroundColor: Colors.white, // Set app bar background color to white
+        elevation: 0, // Removed app bar shadow
+      ),
+      body: Container(
+        color: Colors.white, // Changed background color to white
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 20),
 
-              _buildTextField(_stationNameController, 'Business Name'),
-              _buildTextField(_lastNameController, 'Last Name'),
-              _buildTextField(_firstNameController, 'First Name'),
-              _buildTextField(_middleIniController, 'Middle Initial (Optional)'),
-              _buildTextField(_phoneController, 'Phone Number', keyboardType: TextInputType.phone),
-              _buildTextField(_emailController, 'Email', keyboardType: TextInputType.emailAddress),
-              _buildTextField(_passwordController, 'Password', obscureText: true),
-              _buildTextField(_confirmPasswordController, 'Confirm Password', obscureText: true),
+                _buildTextField(_stationNameController, 'Business Name'),
+                _buildTextField(_lastNameController, 'Last Name'),
+                _buildTextField(_firstNameController, 'First Name'),
+                _buildTextField(_middleIniController, 'Middle Initial (Optional)'),
+                _buildTextField(_phoneController, 'Phone Number', keyboardType: TextInputType.phone),
+                _buildTextField(_emailController, 'Email', keyboardType: TextInputType.emailAddress),
+                _buildTextField(_passwordController, 'Password', obscureText: !_isPasswordVisible, isPassword: true),
+                _buildTextField(_confirmPasswordController, 'Confirm Password', obscureText: !_isConfirmPasswordVisible, isPassword: true),
 
-              const SizedBox(height: 10),
+                const SizedBox(height: 10),
 
-              DropdownButtonFormField<String>(
-                value: _selectedDistrict,
-                decoration: _inputDecoration('Select District'),
-                items: districts.map((district) {
-                  return DropdownMenuItem(
-                    value: district['id'],
-                    child: Text(district['name']!),
-                  );
-                }).toList(),
-                onChanged: (value) => setState(() => _selectedDistrict = value),
-              ),
-
-              const SizedBox(height: 20),
-
-              ElevatedButton.icon(
-                icon: const Icon(Icons.location_on),
-                label: Text(_selectedLocation != null
-                    ? "Location: (${_selectedLocation!.latitude}, ${_selectedLocation!.longitude})"
-                    : "Pick Business Location"),
-                onPressed: () async {
-                  final LatLng? location = await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => LocationPickerScreen()),
-                  );
-                  if (location != null) {
-                    setState(() => _selectedLocation = location);
-                  }
-                },
-              ),
-
-              const SizedBox(height: 20),
-
-              // Register button without OTP functionality
-              _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                      onPressed: _registerStationOwner,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      child: const Text('Register', style: TextStyle(fontSize: 16)),
+                DropdownButtonFormField<String>(
+                  value: _selectedDistrict,
+                  decoration: InputDecoration(
+                    labelText: 'Select District',
+                    labelStyle: const TextStyle(color: Colors.black, fontSize: 14),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Colors.blue),
                     ),
-            ],
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Colors.blue),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Colors.blue, width: 2),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                  items: districts.map((district) {
+                    return DropdownMenuItem(
+                      value: district['id'],
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_city, color: Colors.blue), // Added icon for better UI
+                          const SizedBox(width: 10),
+                          Text(district['name']!, style: const TextStyle(fontSize: 16)),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (value) => setState(() => _selectedDistrict = value),
+                  style: const TextStyle(color: Colors.black), // Improved dropdown text style
+                  dropdownColor: Colors.white, // Set dropdown background color to white
+                  menuMaxHeight: 200.0, // Added max height for dropdown
+                ),
+
+                const SizedBox(height: 20),
+
+                _buildLocationButton(),
+
+                const SizedBox(height: 20),
+
+                // Register button without OTP functionality
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _buildRegisterButton(),
+              ],
+            ),
           ),
         ),
       ),
@@ -193,24 +224,90 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
   }
 
   Widget _buildTextField(TextEditingController controller, String label,
-      {TextInputType keyboardType = TextInputType.text, bool obscureText = false}) {
+      {TextInputType keyboardType = TextInputType.text, bool obscureText = false, bool isPassword = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
         controller: controller,
         obscureText: obscureText,
         keyboardType: keyboardType,
-        decoration: _inputDecoration(label),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.black, fontSize: 14), // Black label with smaller font
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Colors.blue), // Blue border
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Colors.blue), // Blue border when enabled
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Colors.blue, width: 2), // Thicker blue border on focus
+          ),
+          filled: true,
+          fillColor: Colors.white, // White background for input fields
+          suffixIcon: isPassword
+              ? IconButton(
+                  icon: Icon(
+                    obscureText ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.blue, // Blue visibility icon
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      if (label == 'Password') {
+                        _isPasswordVisible = !_isPasswordVisible;
+                      } else if (label == 'Confirm Password') {
+                        _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                      }
+                    });
+                  },
+                )
+              : null,
+        ),
+        style: const TextStyle(color: Colors.black), // Black text inside input fields
       ),
     );
   }
 
-  InputDecoration _inputDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-      filled: true,
-      fillColor: Colors.grey.shade100,
+  ElevatedButton _buildLocationButton() {
+    return ElevatedButton.icon(
+      icon: const Icon(Icons.location_on, color: Colors.blue), // Blue icon
+      label: Text(
+        _selectedLocation != null
+            ? "Location: (${_selectedLocation!.latitude.toStringAsFixed(4)}, ${_selectedLocation!.longitude.toStringAsFixed(4)})"
+            : "Pick Location",
+        style: const TextStyle(fontSize: 16, color: Colors.blue), // Blue text
+      ),
+      onPressed: () async {
+        final LatLng? location = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => LocationPickerScreen()),
+        );
+        if (location != null) {
+          setState(() => _selectedLocation = location);
+        }
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white, // White background
+        side: const BorderSide(color: Colors.blue), // Blue border
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  ElevatedButton _buildRegisterButton() {
+    return ElevatedButton(
+      onPressed: _registerStationOwner,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.blue, // Blue background
+        foregroundColor: Colors.white, // White text
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      child: const Text('Register', style: TextStyle(fontSize: 16)), // Button text
     );
   }
 }

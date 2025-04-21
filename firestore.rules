@@ -1,0 +1,13 @@
+// Stations Collection - Owners can manage their own stations, others can read approved stations
+    match /stations/{stationId} {
+      allow read: if request.auth != null && resource.data.status == "approved"; // Only approved stations are readable
+      allow create: if request.auth != null; // Any authenticated user can create a station
+      allow update, delete: if request.auth.uid == resource.data.ownerId; // Owners can update or delete their own stations
+
+      // Products Subcollection - Owners can manage their own products
+      match /products/{productId} {
+        allow read: if request.auth != null; // Any authenticated user can read products
+        allow create: if request.auth != null && request.auth.uid == resource.data.ownerId; // Owners can create products for their station
+        allow update, delete: if request.auth.uid == resource.data.ownerId; // Owners can update or delete their own products
+      }
+    }
