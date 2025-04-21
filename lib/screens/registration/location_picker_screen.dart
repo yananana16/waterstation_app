@@ -62,16 +62,62 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _showConfirmationSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "Confirm Location",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 10),
+              Text(
+                "Latitude: ${_selectedLocation.latitude.toStringAsFixed(6)}\n"
+                "Longitude: ${_selectedLocation.longitude.toStringAsFixed(6)}",
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context); // Close the bottom sheet
+                  _confirmLocation();
+                },
+                icon: Icon(Icons.check),
+                label: Text("Confirm"),
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Pick Your Business Location")),
+      appBar: AppBar(
+        title: Text("Pick Your Business Location"),
+        centerTitle: true,
+        backgroundColor: Colors.blueAccent,
+        elevation: 0,
+      ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
           : FlutterMap(
               options: MapOptions(
-                initialCenter: _selectedLocation, // Use 'initialCenter' instead of 'center'
-                initialZoom: 15, // Use 'initialZoom' instead of 'zoom'
+                initialCenter: _selectedLocation,
+                initialZoom: 15,
                 onTap: _onMapTapped,
               ),
               children: [
@@ -83,18 +129,23 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                   markers: [
                     Marker(
                       point: _selectedLocation,
-                      width: 40,
-                      height: 40,
-                      child: Icon(Icons.location_pin, color: Colors.red, size: 40),
+                      width: 50,
+                      height: 50,
+                      child: Icon(
+                        Icons.location_on,
+                        color: Colors.redAccent,
+                        size: 50,
+                      ),
                     ),
                   ],
                 ),
               ],
             ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _confirmLocation,
+        onPressed: _showConfirmationSheet,
         label: Text("Confirm Location"),
         icon: Icon(Icons.check),
+        backgroundColor: Colors.blueAccent,
       ),
     );
   }
