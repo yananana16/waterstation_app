@@ -55,7 +55,11 @@ class MembershipConfirmationScreen extends StatelessWidget {
                   // New Member Button
                   ElevatedButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/stationOwnerRegistration');
+                      Navigator.pushNamed(
+                        context,
+                        '/stationOwnerRegistration',
+                        arguments: {'membership': 'new'}, // Pass membership type
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF6CA7FF),
@@ -75,7 +79,11 @@ class MembershipConfirmationScreen extends StatelessWidget {
                   // Existing Member Button
                   ElevatedButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/existingMemberLogin');
+                      Navigator.pushNamed(
+                        context,
+                        '/stationOwnerRegistration',
+                        arguments: {'membership': 'existing'}, // Pass membership type
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF6CA7FF),

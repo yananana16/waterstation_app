@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:Hydrify/screens/registration/location_picker_screen.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:Hydrify/screens/login_screen.dart';
+import 'package:Hydrify/screens/registration/product_register_screen.dart';
 
 class StationOwnerRegistrationScreen extends StatefulWidget {
   const StationOwnerRegistrationScreen({super.key});
@@ -75,6 +76,9 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
       // Generate custom document ID
       String documentId = "station_owner_${DateTime.now().millisecondsSinceEpoch}";
 
+      final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      final String membershipType = args?['membership'] ?? 'new'; // Default to 'new' if not provided
+
       // Save user details in Firestore
       await _firestore.collection('station_owners').doc(documentId).set({
         'stationName': _stationNameController.text.trim(),
@@ -91,6 +95,7 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
         'userId': userCredential.user!.uid, // Link to Firebase Authentication user ID
         'createdAt': FieldValue.serverTimestamp(), // Add createdAt field
         'status': 'submitreq', // Add status field
+        'membership': membershipType, // Add membership field
       });
 
       // Show success dialog with improved UI
@@ -117,11 +122,25 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
         ),
       );
 
-      // Navigate to login screen after 2 seconds
+      // Navigate to Product Registration Screen
       await Future.delayed(const Duration(seconds: 2));
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        MaterialPageRoute(
+          builder: (context) => ProductRegisterScreen(
+            userDetails: {
+              'stationName': _stationNameController.text.trim(),
+              'lastName': _lastNameController.text.trim(),
+              'firstName': _firstNameController.text.trim(),
+              'middleInitial': _middleIniController.text.trim(),
+              'phone': _phoneController.text.trim(),
+              'email': _emailController.text.trim(),
+              'districtID': _selectedDistrict,
+              'location': _selectedLocation,
+              'ownerDocId': documentId, // Pass the document ID of the registered owner
+            },
+          ),
+        ),
       );
     } catch (e) {
       _showMessage("Registration failed: ${e.toString()}");
@@ -136,6 +155,9 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
 
   @override
   Widget build(BuildContext context) {
+    final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final String membershipType = args?['membership'] ?? 'new'; // Default to 'new' if not provided
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(

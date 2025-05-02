@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:Hydrify/screens/login_screen.dart';
+import 'package:Hydrify/screens/station/submit_compliance_screen.dart';
 
 class ProductRegisterScreen extends StatefulWidget {
   final Map<String, dynamic> userDetails;
@@ -46,30 +47,13 @@ class _ProductRegisterScreenState extends State<ProductRegisterScreen> {
       }
 
       String uid = user.uid;
-      String customStationID = "station_${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}";
 
-      // Add station data
-      DocumentReference stationRef = await _firestore.collection('stations').add({
-        ...widget.userDetails,
-        'stationID': customStationID,
-        'ownerId': uid,
-        'role': 'station_owner',
-        'status': 'submit_req',
-        'createdAt': FieldValue.serverTimestamp(),
-        'location': GeoPoint(
-          widget.userDetails['location'].latitude,
-          widget.userDetails['location'].longitude,
-        ),
-        'compliance_approved': false,
-        'district_president': false,
-        'federated_president': false,
-      });
-
-      // Add product data
-      await _firestore.collection('products').add({
-        'stationID': stationRef.id,
-        'customStationID': customStationID,
-        'ownerId': uid,
+      // Add product data to the "products" subcollection of the registered owner's document
+      await _firestore
+          .collection('station_owners')
+          .doc(widget.userDetails['ownerDocId']) // Use the document ID of the registered owner
+          .collection('products')
+          .add({
         'waterType': selectedWaterType,
         'gallon': isGallonSelected,
         'productOffer': selectedProductOffer,
@@ -82,9 +66,10 @@ class _ProductRegisterScreenState extends State<ProductRegisterScreen> {
         const SnackBar(content: Text('Registered successfully!')),
       );
 
+      // Navigate to SubmitComplianceScreen
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        MaterialPageRoute(builder: (context) => const SubmitCompliancePage()),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -25,19 +25,10 @@ class _StationHomeScreenState extends State<StationHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text('Hydrify'),
-        backgroundColor: Colors.blue.shade700,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {},
-          ),
-        ],
+    body: Container(
+        color: Colors.white, // Set the entire page background to white
+        child: _screens[_currentIndex],
       ),
-      body: _screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
@@ -56,15 +47,15 @@ class _StationHomeScreenState extends State<StationHomeScreen> {
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.assignment),
+            icon: Icon(Icons.assignment_turned_in),
             label: 'Compliance',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
+            icon: Icon(Icons.local_shipping),
             label: 'Orders',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.inventory),
+            icon: Icon(Icons.inventory_2),
             label: 'Inventory',
           ),
           BottomNavigationBarItem(
@@ -82,66 +73,171 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade700,
-              borderRadius: BorderRadius.circular(12),
+    return Container(
+      color: Colors.white, // Set the background color to white
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Row with Logo, "H2Go" Text, and Icons
+            Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Image.asset('assets/logo.png', height: 70), // Adjusted logo size
+                      const SizedBox(width: 15), // Increased spacing
+                      const Text(
+                        'H2Go',
+                        style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.blue), // Slightly larger text
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.notifications, color: Colors.blue),
+                        onPressed: () {
+                          // Add notification functionality
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.settings, color: Colors.blue),
+                        onPressed: () {
+                          // Add settings functionality
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.person, color: Colors.blue),
+                        onPressed: () {
+                          // Add user profile functionality
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Welcome Back!',
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      'Manage your water station easily',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
+            const SizedBox(height: 20), // Adjusted spacing below the top row
+
+            // Logo and Welcome Section
+            Center(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal, // Allow horizontal scrolling to prevent overflow
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Image.asset('assets/undraw_home-screen_63eq-removebg-preview 1.png', height: 250), // Illustration
+                    const SizedBox(width: 20), // Spacing between image and text
+                    Container(
+                      color: Colors.white, // White background for better visibility
+                      padding: const EdgeInsets.all(8.0), // Padding around the text
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start, // Align text to the start
+                        children: const [
+                          Text(
+                            'Welcome!',
+                            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.blue),
+                          ),
+                          SizedBox(height: 5), // Spacing between "Welcome!" and "User"
+                          Text(
+                            'User',
+                            style: TextStyle(fontSize: 20, color: Colors.blue),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-                Icon(Icons.water_drop, color: Colors.white, size: 40),
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            children: [
-              _buildGridItem(Icons.assignment, 'Compliance'),
-              _buildGridItem(Icons.shopping_cart, 'Orders'),
-              _buildGridItem(Icons.inventory, 'Inventory'),
-              _buildGridItem(Icons.person, 'Profile'),
-            ],
-          ),
-        ],
+            const SizedBox(height: 20),
+
+            // Card for Daily Sales and Monthly Revenue
+            Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Quench-O Purified Drinking Water',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          DateFormat('EEEE, d MMMM yyyy').format(DateTime.now()),
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                        Text(
+                          DateFormat('hh:mm a').format(DateTime.now()),
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            children: [
+                              const Text('Daily Sales', style: TextStyle(fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 8),
+                              Container(
+                                height: 100,
+                                color: Colors.blue.shade100, // Placeholder for graph
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              const Text('Monthly Revenue', style: TextStyle(fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 8),
+                              Container(
+                                height: 100,
+                                color: Colors.blue.shade100, // Placeholder for graph
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Reminders Section
+            const Text('Reminders', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            _buildReminderCard(Icons.warning, 'Time to backwash! You’ve filled 100-200 containers.'),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildGridItem(IconData icon, String title) {
+  Widget _buildReminderCard(IconData icon, String text) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
           children: [
             Icon(icon, size: 40, color: Colors.blue.shade700),
-            const SizedBox(height: 10),
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(width: 16),
+            Expanded(child: Text(text, style: const TextStyle(fontSize: 16))),
           ],
         ),
       ),
@@ -152,141 +248,112 @@ class HomeScreen extends StatelessWidget {
 class ComplianceScreen extends StatelessWidget {
   ComplianceScreen({super.key});
 
-  // Map of compliance categories with submission labels and timeframes
-  final Map<String, Map<String, String>> complianceCategories = {
-    'finished_bacteriological': {
-      'label': 'Finished Product - Bacteriological',
-      'time': 'Every Month',
+  final List<Map<String, String>> complianceResults = [
+    {
+      'title': 'March 2025',
+      'subtitle': 'Bacteriological Water Analysis',
+      'sampleCollected': 'March 3, 2025',
+      'resultsReleased': 'March 7, 2025',
+      'status': 'Passed',
+      'validUntil': 'April 2025',
     },
-    'source_bacteriological': {
-      'label': 'Source/Deep Well - Bacteriological',
-      'time': 'Every 6 Months',
+    {
+      'title': 'Physical Water Analysis',
+      'subtitle': '',
+      'sampleCollected': 'January 16, 2025',
+      'resultsReleased': 'January 21, 2025',
+      'status': 'Passed',
+      'validUntil': 'June 2025',
     },
-    'source_physical_chemical': {
-      'label': 'Source/Deep Well - Physical-Chemical',
-      'time': 'Every 6 Months',
-    },
-    'finished_physical_chemical': {
-      'label': 'Finished Product - Physical-Chemical',
-      'time': 'Every 6 Months',
-    },
-    'business_permit': {
-      'label': 'Business Permit (BPLO)',
-      'time': 'Every 20th of January',
-    },
-    'dti_cert': {
-      'label': 'DTI Certification',
-      'time': 'Once',
-    },
-    'municipal_clearance': {
-      'label': 'Municipal Environment and Natural Resources',
-      'time': 'Once',
-    },
-    'retail_plan': {
-      'label': 'Plan of the Retail Water Station',
-      'time': 'Once',
-    },
-    'drinking_site_clearance': {
-      'label': 'Drinking Water Site Clearance (Local Health Officer)',
-      'time': 'Once',
-    },
-  };
-
-  // Helper function to calculate the next submission date based on time
-  String getNextSubmissionDate(String timeFrame, DateTime? lastSubmitted) {
-    if (lastSubmitted == null) return 'Not Submitted Yet';
-
-    switch (timeFrame) {
-      case 'Every Month':
-        return DateFormat('yyyy-MM-dd').format(lastSubmitted.add(Duration(days: 30)));
-      case 'Every 6 Months':
-        return DateFormat('yyyy-MM-dd').format(lastSubmitted.add(Duration(days: 182))); // ~6 months
-      case 'Every 20th of January':
-        return DateFormat('yyyy-MM-dd').format(DateTime(lastSubmitted.year + 1, 1, 20));
-      case 'Once':
-        return 'Passed';
-      default:
-        return 'Unknown Submission Time';
-    }
-  }
+  ];
 
   @override
   Widget build(BuildContext context) {
-    // Example last submission dates (in a real app, you'd fetch these from your database)
-    final Map<String, DateTime?> lastSubmissionDates = {
-      'finished_bacteriological': DateTime(2025, 3, 3),
-      'source_bacteriological': DateTime(2025, 3, 3),
-      'source_physical_chemical': DateTime(2025, 3, 3),
-      'finished_physical_chemical': DateTime(2025, 3, 3),
-      'business_permit': DateTime(2025, 1, 20),
-      'dti_cert': DateTime(2025, 3, 3),
-      'municipal_clearance': DateTime(2025, 3, 3),
-      'retail_plan': DateTime(2025, 3, 3),
-      'drinking_site_clearance': DateTime(2025, 3, 3),
-    };
-
     return Scaffold(
-      body: SingleChildScrollView(
+      appBar: AppBar(
+        title: const Text('Compliance'),
+        backgroundColor: Colors.blue.shade700,
+      ),
+      body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Compliance Categories',
+              'Results',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
+            const SizedBox(height: 10),
+            ElevatedButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.history),
+              label: const Text('View Previous Results'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue.shade700,
+              ),
+            ),
             const SizedBox(height: 20),
-            // List to display each compliance category
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: complianceCategories.length,
-              itemBuilder: (context, index) {
-                final category = complianceCategories.keys.elementAt(index);
-                final label = complianceCategories[category]?['label'];
-                final time = complianceCategories[category]?['time'];
-                final lastSubmitted = lastSubmissionDates[category];
-
-                // Get next submission date
-                final nextSubmissionDate = getNextSubmissionDate(time!, lastSubmitted);
-
-                return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Make text content more flexible
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                label!,
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                                overflow: TextOverflow.ellipsis,  // Prevent overflow
-                                maxLines: 1,
-                              ),
-                              Text(
-                                'Time: $time',
-                                style: const TextStyle(fontSize: 14, color: Colors.grey),
-                                overflow: TextOverflow.ellipsis,  // Prevent overflow
-                                maxLines: 1,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          nextSubmissionDate,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
-                        ),
-                      ],
+            Expanded(
+              child: ListView.builder(
+                itemCount: complianceResults.length,
+                itemBuilder: (context, index) {
+                  final result = complianceResults[index];
+                  return Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
-                );
-              },
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            result['title']!,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
+                          if (result['subtitle']!.isNotEmpty)
+                            Text(
+                              result['subtitle']!,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          const SizedBox(height: 10),
+                          Text('Sample Collected: ${result['sampleCollected']}'),
+                          Text('Results Released On: ${result['resultsReleased']}'),
+                          Text(
+                            'Status: ${result['status']}',
+                            style: TextStyle(
+                              color: result['status'] == 'Passed' ? Colors.green : Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text('Valid Until: ${result['validUntil']}'),
+                          const SizedBox(height: 10),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const CertificationScreen()),
+                              );
+                            },
+                            child: const Text(
+                              'View Certification',
+                              style: TextStyle(color: Colors.blue),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -295,190 +362,198 @@ class ComplianceScreen extends StatelessWidget {
   }
 }
 
-
-class OrdersScreen extends StatelessWidget {
-  OrdersScreen({super.key});
-
-  // Firestore collection reference for orders and users
-  final CollectionReference ordersRef = FirebaseFirestore.instance.collection('orders');
-  final CollectionReference usersRef = FirebaseFirestore.instance.collection('users');
-
-  // Function to confirm an order by changing the status to 'confirmed'
-  Future<void> confirmOrder(String orderID) async {
-    try {
-      await ordersRef.doc(orderID).update({'orderStatus': 'confirmed'});
-    } catch (e) {
-      print('Error confirming order: $e');
-    }
-  }
-
-  // Function to mark an order as delivered by changing the status to 'delivered'
-  Future<void> deliverOrder(String orderID) async {
-    try {
-      await ordersRef.doc(orderID).update({'orderStatus': 'delivered'});
-    } catch (e) {
-      print('Error marking order as delivered: $e');
-    }
-  }
-
-  // Get the customUID of the logged-in user from the users collection
-  Future<String?> getCustomUID() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        DocumentSnapshot userDoc = await usersRef.doc(user.uid).get();
-        if (userDoc.exists) {
-          var userData = userDoc.data() as Map<String, dynamic>;
-          return userData['customUID'];  // Assuming 'customUID' is stored in the user document
-        }
-      } catch (e) {
-        print('Error fetching user data: $e');
-      }
-    }
-    return null;
-  }
+class CertificationScreen extends StatelessWidget {
+  const CertificationScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Orders')),
+      appBar: AppBar(
+        title: const Text('Certification'),
+        backgroundColor: Colors.blue.shade700,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: FutureBuilder<String?>(
-          future: getCustomUID(),
-          builder: (context, uidSnapshot) {
-            if (uidSnapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (uidSnapshot.hasError || !uidSnapshot.hasData) {
-              return const Center(child: Text('Error fetching user customUID.'));
-            }
-
-            String? customUID = uidSnapshot.data;
-
-            return StreamBuilder<QuerySnapshot>(
-              stream: ordersRef.where('customUID', isEqualTo: customUID).snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (snapshot.hasError) {
-                  return const Center(child: Text('Error loading orders'));
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('No orders found.'));
-                }
-
-                // Separate orders by status
-                var pendingOrders = snapshot.data!.docs.where((order) => order['orderStatus'] == 'pending').toList();
-                var confirmedOrders = snapshot.data!.docs.where((order) => order['orderStatus'] == 'confirmed').toList();
-                var deliveredOrders = snapshot.data!.docs.where((order) => order['orderStatus'] == 'delivered').toList();
-
-                return SingleChildScrollView(
+        child: Column(
+          children: [
+            Expanded(
+              child: Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Display Pending Orders
-                      if (pendingOrders.isNotEmpty) ...[
-                        const Text('Pending Orders', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal, // Horizontal scroll
-                          child: DataTable(
-                            columns: const [
-                              DataColumn(label: Text('Order ID')),
-                              DataColumn(label: Text('Quantity')),
-                              DataColumn(label: Text('Total Price')),
-                              DataColumn(label: Text('Actions')),
-                            ],
-                            rows: pendingOrders.map<DataRow>((order) {
-                              return DataRow(cells: [
-                                DataCell(Text(order['orderID'])),
-                                DataCell(Text(order['quantity'].toString())),
-                                DataCell(Text(order['totalPrice'].toString())),
-                                DataCell(
-                                  ElevatedButton(
-                                    onPressed: () => confirmOrder(order['orderID']),
-                                    child: const Text('Confirm'),
-                                  ),
-                                ),
-                              ]);
-                            }).toList(),
-                          ),
-                        ),
-                      ],
-
                       const SizedBox(height: 20),
-
-                      // Display Confirmed Orders
-                      if (confirmedOrders.isNotEmpty) ...[
-                        const Text('Confirmed Orders', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal, // Horizontal scroll
-                          child: DataTable(
-                            columns: const [
-                              DataColumn(label: Text('Order ID')),
-                              DataColumn(label: Text('Station Name')),
-                              DataColumn(label: Text('Quantity')),
-                              DataColumn(label: Text('Total Price')),
-                              DataColumn(label: Text('Actions')),
-                            ],
-                            rows: confirmedOrders.map<DataRow>((order) {
-                              return DataRow(cells: [
-                                DataCell(Text(order['orderID'])),
-                                DataCell(Text(order['stationName'])),
-                                DataCell(Text(order['quantity'].toString())),
-                                DataCell(Text(order['totalPrice'].toString())),
-                                DataCell(
-                                  ElevatedButton(
-                                    onPressed: () => deliverOrder(order['orderID']),
-                                    child: const Text('Delivered'),
-                                  ),
-                                ),
-                              ]);
-                            }).toList(),
-                          ),
-                        ),
-                      ],
-
+                      const Text(
+                        'Bacteriological Water Analysis',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const Text(
+                        'March 2025',
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
                       const SizedBox(height: 20),
-
-                      // Display Delivered Orders
-                      if (deliveredOrders.isNotEmpty) ...[
-                        const Text('Delivered Orders', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal, // Horizontal scroll
-                          child: DataTable(
-                            columns: const [
-                              DataColumn(label: Text('Order ID')),
-                              DataColumn(label: Text('Station Name')),
-                              DataColumn(label: Text('Quantity')),
-                              DataColumn(label: Text('Total Price')),
-                            ],
-                            rows: deliveredOrders.map<DataRow>((order) {
-                              return DataRow(cells: [
-                                DataCell(Text(order['orderID'])),
-                                DataCell(Text(order['stationName'])),
-                                DataCell(Text(order['quantity'].toString())),
-                                DataCell(Text(order['totalPrice'].toString())),
-                              ]);
-                            }).toList(),
+                      const Text(
+                        'Quench-O Purified Drinking Water',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      const Text(
+                        '42-A Gustilo St., La Paz, Iloilo City',
+                        style: TextStyle(fontSize: 14, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 20),
+                      Expanded(
+                        child: Container(
+                          color: Colors.grey.shade300,
+                          child: const Center(
+                            child: Text(
+                              'Certification Details Placeholder',
+                              style: TextStyle(color: Colors.grey),
+                            ),
                           ),
                         ),
-                      ],
+                      ),
                     ],
                   ),
-                );
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () {
+                // Add functionality to save as PDF if needed
               },
-            );
-          },
+              icon: const Icon(Icons.picture_as_pdf),
+              label: const Text('Save as PDF'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue.shade700,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
+class OrdersScreen extends StatelessWidget {
+  OrdersScreen({super.key});
+
+  final CollectionReference ordersRef = FirebaseFirestore.instance.collection('orders');
+
+  Future<Map<String, int>> fetchOrderSummary() async {
+    QuerySnapshot snapshot = await ordersRef.get();
+    int pending = 0, readyForDelivery = 0, todayOrders = 0;
+
+    for (var doc in snapshot.docs) {
+      var data = doc.data() as Map<String, dynamic>;
+      if (data['orderStatus'] == 'pending') pending++;
+      if (data['orderStatus'] == 'readyForDelivery') readyForDelivery++;
+      if (data['orderDate'] == DateFormat('yyyy-MM-dd').format(DateTime.now())) todayOrders++;
+    }
+
+    return {
+      'pending': pending,
+      'readyForDelivery': readyForDelivery,
+      'todayOrders': todayOrders,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Order and Delivery'),
+        backgroundColor: Colors.blue.shade700,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: FutureBuilder<Map<String, int>>(
+          future: fetchOrderSummary(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError || !snapshot.hasData) {
+              return const Center(child: Text('Error fetching order summary.'));
+            }
+
+            final summary = snapshot.data!;
+            return Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildSummaryCard('Pending Orders', summary['pending'].toString()),
+                    _buildSummaryCard('Ready for Delivery', summary['readyForDelivery'].toString()),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildSummaryCard('Number of Orders Today', summary['todayOrders'].toString(), isFullWidth: true),
+                const SizedBox(height: 32),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildActionButton(Icons.list, 'Orders', () {
+                      // Navigate to Orders List screen
+                    }),
+                    _buildActionButton(Icons.add, 'Add Order', () {
+                      // Navigate to Add Order screen
+                    }),
+                    _buildActionButton(Icons.local_shipping, 'Deliveries', () {
+                      // Navigate to Deliveries screen
+                    }),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(String title, String value, {bool isFullWidth = false}) {
+    return Expanded(
+      flex: isFullWidth ? 2 : 1,
+      child: Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Text(title, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+              const SizedBox(height: 8),
+              Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton(IconData icon, String label, VoidCallback onPressed) {
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            shape: const CircleBorder(),
+            padding: const EdgeInsets.all(16),
+            backgroundColor: Colors.blue.shade50,
+          ),
+          child: Icon(icon, size: 30, color: Colors.blue),
+        ),
+        const SizedBox(height: 8),
+        Text(label, style: const TextStyle(fontSize: 14, color: Colors.blue)),
+      ],
+    );
+  }
+}
 
 class InventoryScreen extends StatelessWidget {
   const InventoryScreen({super.key});
@@ -504,12 +579,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late User _user;
 
   // Profile fields
-  String _firstName = '';
-  String _lastName = '';
-  String _email = '';
-  String _status = 'Pending Approval'; // You can change this dynamically based on the user's status
-  String _phone = '';
   String _stationName = '';
+  String _address = '';
+  String _fullName = '';
+  String _email = '';
 
   @override
   void initState() {
@@ -522,53 +595,86 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _fetchUserProfile() async {
     DocumentSnapshot userProfile = await _firestore.collection('users').doc(_user.uid).get();
     setState(() {
-      _firstName = userProfile['firstName'] ?? '';
-      _lastName = userProfile['lastName'] ?? '';
+      _stationName = userProfile['stationName'] ?? '';
+      _address = userProfile['address'] ?? '';
+      _fullName = '${userProfile['firstName'] ?? ''} ${userProfile['lastName'] ?? ''}';
       _email = userProfile['email'] ?? _user.email ?? '';
-      _status = userProfile['status'] ?? 'Pending Approval';
-      _phone = userProfile['phone'] ?? '';
-      _stationName = userProfile['stationName'] ?? ''; 
     });
   }
 
   // Sign out the user
   Future<void> _logout() async {
-  await _auth.signOut();
-  Navigator.pushAndRemoveUntil(
-    context,
-    MaterialPageRoute(builder: (context) => LoginScreen()),
-    (Route<dynamic> route) => false,
-  );
-}
-
+    await _auth.signOut();
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => LoginScreen()),
+      (Route<dynamic> route) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Text(
-            'Profile',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          const SizedBox(height: 20),
+          CircleAvatar(
+            radius: 50,
+            backgroundColor: Colors.blue.shade100,
+            child: const Icon(Icons.store, size: 50, color: Colors.blue),
           ),
           const SizedBox(height: 20),
-          Text('Status: $_status', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 20),
-          Text('Station Name: $_stationName', style: const TextStyle(fontSize: 18)),
-          const SizedBox(height:20),
-          Text('First Name: $_firstName', style: const TextStyle(fontSize: 18)),
-          Text('Last Name: $_lastName', style: const TextStyle(fontSize: 18)),
-          Text('Email: $_email', style: const TextStyle(fontSize: 18)),
-          Text('Phone: $_phone', style: const TextStyle(fontSize: 18)),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _logout,
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Logout'),
+          Text(
+            _stationName,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
+          const SizedBox(height: 5),
+          Text(
+            _address,
+            style: const TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            _fullName,
+            style: const TextStyle(fontSize: 18),
+          ),
+          Text(
+            _email,
+            style: const TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+          const SizedBox(height: 20),
+          _buildProfileButton(Icons.business, 'Edit Business Profile', () {
+            // Navigate to Edit Business Profile screen
+          }),
+          _buildProfileButton(Icons.person, 'Edit User Profile', () {
+            // Navigate to Edit User Profile screen
+          }),
+          _buildProfileButton(Icons.assignment, 'View Accreditation Status', () {
+            // Navigate to Accreditation Status screen
+          }),
+          _buildProfileButton(Icons.lock, 'Change Password', () {
+            // Navigate to Change Password screen
+          }),
+          _buildProfileButton(Icons.logout, 'Log Out', _logout, isDestructive: true),
         ],
+      ),
+    );
+  }
+
+  Widget _buildProfileButton(IconData icon, String label, VoidCallback onPressed, {bool isDestructive = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, color: isDestructive ? Colors.red : Colors.blue),
+        label: Text(label, style: TextStyle(color: isDestructive ? Colors.red : Colors.blue)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue.shade50,
+          minimumSize: const Size(double.infinity, 50),
+          alignment: Alignment.centerLeft,
+        ),
       ),
     );
   }

@@ -62,90 +62,97 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _showConfirmationSheet() {
-    showModalBottomSheet(
-      context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "Confirm Location",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 10),
-              Text(
-                "Latitude: ${_selectedLocation.latitude.toStringAsFixed(6)}\n"
-                "Longitude: ${_selectedLocation.longitude.toStringAsFixed(6)}",
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(context); // Close the bottom sheet
-                  _confirmLocation();
-                },
-                icon: Icon(Icons.check),
-                label: Text("Confirm"),
-                style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Pick Your Business Location"),
-        centerTitle: true,
-        backgroundColor: Colors.blueAccent,
+        title: Text("Business Location", style: TextStyle(color: Colors.blue)),
+        backgroundColor: Colors.white,
         elevation: 0,
+        iconTheme: IconThemeData(color: Colors.blue),
       ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : FlutterMap(
-              options: MapOptions(
-                initialCenter: _selectedLocation,
-                initialZoom: 15,
-                onTap: _onMapTapped,
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                  subdomains: ['a', 'b', 'c'],
-                ),
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _selectedLocation,
-                      width: 50,
-                      height: 50,
-                      child: Icon(
-                        Icons.location_on,
-                        color: Colors.redAccent,
-                        size: 50,
-                      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: _isLoading
+                ? Center(child: CircularProgressIndicator())
+                : FlutterMap(
+                    options: MapOptions(
+                      initialCenter: _selectedLocation,
+                      initialZoom: 15,
+                      onTap: _onMapTapped,
                     ),
-                  ],
+                    children: [
+                      TileLayer(
+                        urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                        subdomains: ['a', 'b', 'c'],
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: _selectedLocation,
+                            width: 50,
+                            height: 50,
+                            child: Icon(Icons.location_on, color: Colors.blue, size: 50),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12.0),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.2),
+                        spreadRadius: 2,
+                        blurRadius: 5,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.location_pin, color: Colors.blue),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "42-A Gustilo St., La Paz, Iloilo City", // Placeholder address
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _confirmLocation,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14.0),
+                    ),
+                    child: Text(
+                      "Confirm Location",
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
                 ),
               ],
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showConfirmationSheet,
-        label: Text("Confirm Location"),
-        icon: Icon(Icons.check),
-        backgroundColor: Colors.blueAccent,
+          ),
+        ],
       ),
     );
   }

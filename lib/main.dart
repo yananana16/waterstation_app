@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:Hydrify/screens/registration/station_owner_registration_screen.dart';
 import 'firebase_options.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/login_screen.dart'; 
@@ -36,7 +37,11 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Water Station App',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: const SplashScreen(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const SplashScreen(),
+        '/stationOwnerRegistration': (context) => const StationOwnerRegistrationScreen(),
+      },
     );
   }
 }
@@ -72,35 +77,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkUserLogin() async {
-    firebase_auth.User? user = firebase_auth.FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        // Fetch user role from Firestore
-        DocumentSnapshot userDoc =
-            await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-
-        if (!mounted) return; // Ensure widget is still active before navigating
-
-        if (userDoc.exists && userDoc.data() != null) {
-          String role = userDoc['role'] ?? ''; // Ensure role exists
-
-          if (role == 'station_owner') {
-            _navigateTo(const DisplayStatusScreen());
-          } else if (role == 'customer') {
-            _navigateTo(const CustomerHomeScreen());
-          } else {
-            _navigateTo(const LoginScreen()); // Default to login if role is missing
-          }
-        } else {
-          _navigateTo(const LoginScreen());
-        }
-      } catch (e) {
-        print('Error fetching user role: $e');
-        _navigateTo(const LoginScreen()); // Navigate to login on error
-      }
-    } else {
-      _navigateTo(const LoginScreen());
-    }
+    _navigateTo(const LoginScreen()); // Always navigate to LoginScreen
   }
 
   void _navigateTo(Widget screen) {
