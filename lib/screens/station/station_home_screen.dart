@@ -25,7 +25,7 @@ class _StationHomeScreenState extends State<StationHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-    body: Container(
+      body: Container(
         color: Colors.white, // Set the entire page background to white
         child: _screens[_currentIndex],
       ),
@@ -90,7 +90,7 @@ class HomeScreen extends StatelessWidget {
                       Image.asset('assets/logo.png', height: 70), // Adjusted logo size
                       const SizedBox(width: 15), // Increased spacing
                       const Text(
-                        'H2Go',
+                        'H2OGo',
                         style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.blue), // Slightly larger text
                       ),
                     ],
@@ -159,6 +159,7 @@ class HomeScreen extends StatelessWidget {
             // Card for Daily Sales and Monthly Revenue
             Card(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              color: Colors.blue.shade50, // Updated background color
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
@@ -271,8 +272,33 @@ class ComplianceScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Compliance'),
-        backgroundColor: Colors.blue.shade700,
+        automaticallyImplyLeading: false, // Remove the back button
+        title: const Text(
+          'Compliance',
+          style: TextStyle(color: Colors.blue), // Set title font color to blue
+        ),
+        backgroundColor: Colors.white, // Set app bar background to white
+        iconTheme: const IconThemeData(color: Colors.black), // Set icon color to black
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: () {
+              // Add notification functionality
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              // Add settings functionality
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              // Add user profile functionality
+            },
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -466,8 +492,33 @@ class OrdersScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Order and Delivery'),
-        backgroundColor: Colors.blue.shade700,
+        automaticallyImplyLeading: false, // Remove the back button
+        title: const Text(
+          'Order and Delivery',
+          style: TextStyle(color: Colors.blue), // Set title font color to blue
+        ),
+        backgroundColor: Colors.white, // Set app bar background to white
+        iconTheme: const IconThemeData(color: Colors.black), // Set icon color to black
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: () {
+              // Add notification functionality
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              // Add settings functionality
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              // Add user profile functionality
+            },
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -522,6 +573,7 @@ class OrdersScreen extends StatelessWidget {
       flex: isFullWidth ? 2 : 1,
       child: Card(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        color: Colors.blue.shade50, // Updated background color
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -558,10 +610,510 @@ class OrdersScreen extends StatelessWidget {
 class InventoryScreen extends StatelessWidget {
   const InventoryScreen({super.key});
 
+  void _showSalesScreen(BuildContext context) {
+    String selectedMonth = 'Any';
+    String selectedYear = 'Any';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Scaffold(
+          appBar: AppBar(
+            automaticallyImplyLeading: true,
+            title: const Text(
+              'Sales',
+              style: TextStyle(color: Colors.blue),
+            ),
+            backgroundColor: Colors.white,
+            iconTheme: const IconThemeData(color: Colors.black),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.notifications),
+                onPressed: () {
+                  // Add notification functionality
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.settings),
+                onPressed: () {
+                  // Add settings functionality
+                },
+              ),
+            ],
+          ),
+          body: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    DropdownButton<String>(
+                      value: selectedMonth,
+                      items: ['Any', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+                          .map((month) => DropdownMenuItem(value: month, child: Text(month)))
+                          .toList(),
+                      onChanged: (value) {
+                        selectedMonth = value!;
+                      },
+                    ),
+                    DropdownButton<String>(
+                      value: selectedYear,
+                      items: ['Any', '2023', '2024', '2025', '2026', '2027']
+                          .map((year) => DropdownMenuItem(value: year, child: Text(year)))
+                          .toList(),
+                      onChanged: (value) {
+                        selectedYear = value!;
+                      },
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        selectedMonth = 'Any';
+                        selectedYear = 'Any';
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('Apply', style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Card(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  color: Colors.blue.shade50, // Match _buildSalesCard background color
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: const [
+                        Text(
+                          'Daily Sales',
+                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'P 9540',
+                          style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blue),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildSalesCard('Returned Containers', '55'),
+                    _buildSalesCard('Number of Orders', '318'),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: ListView(
+                    children: List.generate(4, (index) {
+                      return Card(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        color: Colors.blue.shade50, // Match _buildSalesCard background color
+                        child: ListTile(
+                          title: Text('Order No. 0${60 + index}'),
+                          subtitle: Text('Quantity: ${[20, 5, 10, 20][index]}'),
+                          trailing: ElevatedButton(
+                            onPressed: () {
+                              // Add view functionality
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: const Text('View'),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSalesCard(String title, String value) {
+    return Expanded(
+      child: Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        color: Colors.blue.shade50, // Updated background color
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Text(title, style: const TextStyle(fontSize: 14, color: Colors.grey)), // Reduced font size
+              const SizedBox(height: 8),
+              Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue)), // Reduced font size
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInventoryCard(String title, String value, {bool isFullWidth = false}) {
+    return Expanded(
+      flex: isFullWidth ? 2 : 1,
+      child: Card(
+        color: Colors.blue.shade50, // Match card box background
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Text(title, style: const TextStyle(fontSize: 16, color: Colors.grey)), // Reduced font size
+              const SizedBox(height: 8),
+              Text(value, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold, color: Colors.blue)), // Reduced font size
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton(IconData icon, String label, VoidCallback onPressed) {
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            shape: const CircleBorder(),
+            padding: const EdgeInsets.all(12), // Reduced padding for closer icons
+            backgroundColor: Colors.blue.shade50,
+          ),
+          child: Icon(icon, size: 28, color: Colors.blue), // Adjusted icon size
+        ),
+        const SizedBox(height: 6), // Reduced spacing
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.blue)), // Adjusted font size
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text('Inventory Section', style: TextStyle(fontSize: 24)),
+    return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false, // Remove the back button
+        title: const Text(
+          'Sales and Inventory',
+          style: TextStyle(fontSize: 18, color: Colors.blue), // Adjusted font size
+        ),
+        backgroundColor: Colors.white, // Set app bar background to white
+        iconTheme: const IconThemeData(color: Colors.black), // Set icon color to black
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: () {
+              // Add notification functionality
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              // Add settings functionality
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              // Add user profile functionality
+            },
+          ),
+        ],
+      ),
+      body: Container(
+        color: Colors.white, // Set the entire page background to white
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Image.asset(
+                'assets/Sales and Inventory.png',
+                height: 150, // Adjust height as needed
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    DateFormat('EEEE, d MMMM yyyy').format(DateTime.now()),
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  Text(
+                    DateFormat('hh:mm a').format(DateTime.now()),
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildInventoryCard('Returned Containers', '35'),
+                  _buildInventoryCard('Number of Orders', '110'),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _buildInventoryCard('Current Number of Containers', '685', isFullWidth: true),
+              const SizedBox(height: 32),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Column(
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => _showSalesScreen(context),
+                        style: ElevatedButton.styleFrom(
+                          shape: const CircleBorder(),
+                          padding: const EdgeInsets.all(12), // Reduced padding for closer icons
+                          backgroundColor: Colors.blue.shade50, // Match card box background
+                        ),
+                        child: const Icon(Icons.bar_chart, size: 28, color: Colors.blue), // Adjusted icon size
+                      ),
+                      const SizedBox(height: 6), // Reduced spacing
+                      const Text('Sales', style: TextStyle(fontSize: 12, color: Colors.blue)), // Adjusted font size
+                    ],
+                  ),
+                  _buildActionButton(Icons.inventory, 'Inventory', () {}),
+                  _buildActionButton(Icons.report, 'Report', () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ReportScreen()),
+                    );
+                  }),
+                  _buildActionButton(Icons.people, 'Staffs', () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const StaffsScreen()),
+                    );
+                  }),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ReportScreen extends StatelessWidget {
+  const ReportScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Report', style: TextStyle(color: Colors.blue)),
+        backgroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.black),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: () {
+              // Add notification functionality
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              // Add settings functionality
+            },
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                DropdownButton<String>(
+                  value: 'February',
+                  items: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+                      .map((month) => DropdownMenuItem(value: month, child: Text(month)))
+                      .toList(),
+                  onChanged: (value) {
+                    // Handle month selection
+                  },
+                ),
+                DropdownButton<String>(
+                  value: '2025',
+                  items: ['2023', '2024', '2025', '2026', '2027']
+                      .map((year) => DropdownMenuItem(value: year, child: Text(year)))
+                      .toList(),
+                  onChanged: (value) {
+                    // Handle year selection
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () {
+                    // Handle Save as PDF
+                  },
+                  icon: const Icon(Icons.picture_as_pdf, color: Colors.blue),
+                  label: const Text('Save as PDF', style: TextStyle(color: Colors.blue)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.blue),
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    // Handle Save as Excel
+                  },
+                  icon: const Icon(Icons.grid_on, color: Colors.blue),
+                  label: const Text('Save as Excel', style: TextStyle(color: Colors.blue)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.blue),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Quench-O Purified Drinking Water',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const Text(
+                        '42-A Gustilo St., La Paz, Iloilo City',
+                        style: TextStyle(fontSize: 14, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Sales Report',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      const Text(
+                        'As of February 2025',
+                        style: TextStyle(fontSize: 14, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 20),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: 5, // Placeholder for report rows
+                          itemBuilder: (context, index) {
+                            return Container(
+                              margin: const EdgeInsets.symmetric(vertical: 4.0),
+                              height: 40,
+                              color: Colors.grey.shade300,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class StaffsScreen extends StatelessWidget {
+  const StaffsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Staffs', style: TextStyle(color: Colors.blue)),
+        backgroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.black), // Set icon color to black
+      ),
+      body: Column(
+        children: [
+          Container(
+            color: Colors.blue.shade50,
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  DateFormat('EEEE, d MMMM yyyy').format(DateTime.now()),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                Text(
+                  DateFormat('hh:mm a').format(DateTime.now()),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              children: [
+                _buildStaffSection('Refilling Technician', 3),
+                _buildStaffSection('Cashier', 1),
+                _buildStaffSection('Delivery Personnel', 3),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStaffSection(String title, int count) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity, // Stretch the background to full width
+          color: Colors.blue.shade700,
+          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+          child: Text(
+            title,
+            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+        ),
+        Column(
+          children: List.generate(count, (index) {
+            return Container(
+              width: double.infinity, // Stretch the background to full width
+              color: Colors.blue.shade50,
+              margin: const EdgeInsets.symmetric(vertical: 4.0),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.blue.shade100,
+                  child: const Icon(Icons.person, color: Colors.blue),
+                ),
+                title: const Text(
+                  '',
+                  style: TextStyle(fontSize: 14, color: Colors.black),
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
     );
   }
 }
@@ -614,51 +1166,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const SizedBox(height: 20),
-          CircleAvatar(
-            radius: 50,
-            backgroundColor: Colors.blue.shade100,
-            child: const Icon(Icons.store, size: 50, color: Colors.blue),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profile', style: TextStyle(color: Colors.blue)),
+        backgroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.black), // Set icon color to black
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: () {
+              // Add notification functionality
+            },
           ),
-          const SizedBox(height: 20),
-          Text(
-            _stationName,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              // Add settings functionality
+            },
           ),
-          const SizedBox(height: 5),
-          Text(
-            _address,
-            style: const TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            _fullName,
-            style: const TextStyle(fontSize: 18),
-          ),
-          Text(
-            _email,
-            style: const TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-          const SizedBox(height: 20),
-          _buildProfileButton(Icons.business, 'Edit Business Profile', () {
-            // Navigate to Edit Business Profile screen
-          }),
-          _buildProfileButton(Icons.person, 'Edit User Profile', () {
-            // Navigate to Edit User Profile screen
-          }),
-          _buildProfileButton(Icons.assignment, 'View Accreditation Status', () {
-            // Navigate to Accreditation Status screen
-          }),
-          _buildProfileButton(Icons.lock, 'Change Password', () {
-            // Navigate to Change Password screen
-          }),
-          _buildProfileButton(Icons.logout, 'Log Out', _logout, isDestructive: true),
         ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(height: 20),
+            CircleAvatar(
+              radius: 50,
+              backgroundColor: Colors.blue.shade100,
+              child: const Icon(Icons.store, size: 50, color: Colors.blue),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              _stationName,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              _address,
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _fullName,
+              style: const TextStyle(fontSize: 18),
+            ),
+            Text(
+              _email,
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+            const SizedBox(height: 20),
+            _buildProfileButton(Icons.business, 'Edit Business Profile', () {
+              // Navigate to Edit Business Profile screen
+            }),
+            _buildProfileButton(Icons.person, 'Edit User Profile', () {
+              // Navigate to Edit User Profile screen
+            }),
+            _buildProfileButton(Icons.assignment, 'View Accreditation Status', () {
+              // Navigate to Accreditation Status screen
+            }),
+            _buildProfileButton(Icons.lock, 'Change Password', () {
+              // Navigate to Change Password screen
+            }),
+            _buildProfileButton(Icons.logout, 'Log Out', _logout, isDestructive: true),
+          ],
+        ),
       ),
     );
   }

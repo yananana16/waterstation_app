@@ -1,0 +1,2 @@
+D:/Thesis/waterstation_app/android/app/.cxx/Debug/n3176g3x/armeabi-v7a/CMakeFiles/edit_cache.dir
+D:/Thesis/waterstation_app/android/app/.cxx/Debug/n3176g3x/armeabi-v7a/CMakeFiles/rebuild_cache.dir
