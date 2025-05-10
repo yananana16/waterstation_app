@@ -468,37 +468,26 @@ class CertificationScreen extends StatelessWidget {
 class OrdersScreen extends StatelessWidget {
   OrdersScreen({super.key});
 
-  final CollectionReference ordersRef = FirebaseFirestore.instance.collection('orders');
-
-  Future<Map<String, int>> fetchOrderSummary() async {
-    QuerySnapshot snapshot = await ordersRef.get();
-    int pending = 0, readyForDelivery = 0, todayOrders = 0;
-
-    for (var doc in snapshot.docs) {
-      var data = doc.data() as Map<String, dynamic>;
-      if (data['orderStatus'] == 'pending') pending++;
-      if (data['orderStatus'] == 'readyForDelivery') readyForDelivery++;
-      if (data['orderDate'] == DateFormat('yyyy-MM-dd').format(DateTime.now())) todayOrders++;
-    }
-
-    return {
-      'pending': pending,
-      'readyForDelivery': readyForDelivery,
-      'todayOrders': todayOrders,
-    };
-  }
+  final List<Map<String, dynamic>> orders = [
+    {'orderNo': '057', 'quantity': 5},
+    {'orderNo': '058', 'quantity': 15},
+    {'orderNo': '059', 'quantity': 10},
+    {'orderNo': '060', 'quantity': 20},
+    {'orderNo': '061', 'quantity': 10},
+    {'orderNo': '062', 'quantity': 15},
+    {'orderNo': '063', 'quantity': 25},
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false, // Remove the back button
         title: const Text(
-          'Order and Delivery',
-          style: TextStyle(color: Colors.blue), // Set title font color to blue
+          'Orders',
+          style: TextStyle(color: Colors.blue),
         ),
-        backgroundColor: Colors.white, // Set app bar background to white
-        iconTheme: const IconThemeData(color: Colors.black), // Set icon color to black
+        backgroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications),
@@ -506,103 +495,52 @@ class OrdersScreen extends StatelessWidget {
               // Add notification functionality
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              // Add settings functionality
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              // Add user profile functionality
-            },
-          ),
         ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: FutureBuilder<Map<String, int>>(
-          future: fetchOrderSummary(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (snapshot.hasError || !snapshot.hasData) {
-              return const Center(child: Text('Error fetching order summary.'));
-            }
-
-            final summary = snapshot.data!;
-            return Column(
+        child: Column(
+          children: [
+            Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildSummaryCard('Pending Orders', summary['pending'].toString()),
-                    _buildSummaryCard('Ready for Delivery', summary['readyForDelivery'].toString()),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildSummaryCard('Number of Orders Today', summary['todayOrders'].toString(), isFullWidth: true),
-                const SizedBox(height: 32),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildActionButton(Icons.list, 'Orders', () {
-                      // Navigate to Orders List screen
-                    }),
-                    _buildActionButton(Icons.add, 'Add Order', () {
-                      // Navigate to Add Order screen
-                    }),
-                    _buildActionButton(Icons.local_shipping, 'Deliveries', () {
-                      // Navigate to Deliveries screen
-                    }),
-                  ],
+                Icon(Icons.calendar_today, color: Colors.blue.shade700),
+                const SizedBox(width: 8),
+                Text(
+                  DateFormat('MMMM d, yyyy').format(DateTime.now()),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ],
-            );
-          },
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView.builder(
+                itemCount: orders.length,
+                itemBuilder: (context, index) {
+                  final order = orders[index];
+                  return Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    child: ListTile(
+                      title: Text('Order No. ${order['orderNo']}'),
+                      subtitle: Text('Quantity: ${order['quantity']}'),
+                      trailing: ElevatedButton(
+                        onPressed: () {
+                          // Add functionality for viewing order details
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text('View'),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
-    );
-  }
-
-  Widget _buildSummaryCard(String title, String value, {bool isFullWidth = false}) {
-    return Expanded(
-      flex: isFullWidth ? 2 : 1,
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: Colors.blue.shade50, // Updated background color
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              Text(title, style: const TextStyle(fontSize: 16, color: Colors.grey)),
-              const SizedBox(height: 8),
-              Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton(IconData icon, String label, VoidCallback onPressed) {
-    return Column(
-      children: [
-        ElevatedButton(
-          onPressed: onPressed,
-          style: ElevatedButton.styleFrom(
-            shape: const CircleBorder(),
-            padding: const EdgeInsets.all(16),
-            backgroundColor: Colors.blue.shade50,
-          ),
-          child: Icon(icon, size: 30, color: Colors.blue),
-        ),
-        const SizedBox(height: 8),
-        Text(label, style: const TextStyle(fontSize: 14, color: Colors.blue)),
-      ],
     );
   }
 }
@@ -1218,16 +1156,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 20),
             _buildProfileButton(Icons.business, 'Edit Business Profile', () {
-              // Navigate to Edit Business Profile screen
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const EditBusinessProfileScreen()),
+              );
             }),
             _buildProfileButton(Icons.person, 'Edit User Profile', () {
-              // Navigate to Edit User Profile screen
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const EditUserProfileScreen()),
+              );
             }),
             _buildProfileButton(Icons.assignment, 'View Accreditation Status', () {
               // Navigate to Accreditation Status screen
             }),
             _buildProfileButton(Icons.lock, 'Change Password', () {
-              // Navigate to Change Password screen
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ChangePasswordScreen()),
+              );
             }),
             _buildProfileButton(Icons.logout, 'Log Out', _logout, isDestructive: true),
           ],
@@ -1249,6 +1196,367 @@ class _ProfileScreenState extends State<ProfileScreen> {
           alignment: Alignment.centerLeft,
         ),
       ),
+    );
+  }
+}
+
+class ChangePasswordScreen extends StatefulWidget {
+  const ChangePasswordScreen({super.key});
+
+  @override
+  _ChangePasswordScreenState createState() => _ChangePasswordScreenState();
+}
+
+class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
+  final _currentPasswordController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final _auth = FirebaseAuth.instance;
+
+  Future<void> _changePassword() async {
+    try {
+      final user = _auth.currentUser!;
+      final cred = EmailAuthProvider.credential(
+        email: user.email!,
+        password: _currentPasswordController.text,
+      );
+
+      await user.reauthenticateWithCredential(cred);
+      if (_newPasswordController.text == _confirmPasswordController.text) {
+        await user.updatePassword(_newPasswordController.text);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password changed successfully')),
+        );
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Passwords do not match')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Change Password',
+          style: TextStyle(color: Colors.blue), // Set font color to blue
+        ),
+        backgroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.black),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications, color: Colors.black),
+            onPressed: () {
+              // Add notification functionality
+            },
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Image.asset(
+              'assets/change_password_illustration.png',
+              height: 150,
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _currentPasswordController,
+              decoration: InputDecoration(
+                labelText: 'Enter current password',
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.visibility_off),
+                  onPressed: () {
+                    // Add visibility toggle functionality
+                  },
+                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _newPasswordController,
+              decoration: InputDecoration(
+                labelText: 'Enter new password',
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.visibility_off),
+                  onPressed: () {
+                    // Add visibility toggle functionality
+                  },
+                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _confirmPasswordController,
+              decoration: InputDecoration(
+                labelText: 'Re-enter new password',
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.visibility_off),
+                  onPressed: () {
+                    // Add visibility toggle functionality
+                  },
+                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: _changePassword,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text(
+                'Change Password',
+                style: TextStyle(color: Colors.white), // Set font color to white
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class EditUserProfileScreen extends StatefulWidget {
+  const EditUserProfileScreen({super.key});
+
+  @override
+  _EditUserProfileScreenState createState() => _EditUserProfileScreenState();
+}
+
+class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
+  final _userNameController = TextEditingController();
+  final _contactNumberController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize controllers with existing user data if available
+    _userNameController.text = "Name"; // Replace with actual user data
+    _contactNumberController.text = "0912 345 6789"; // Replace with actual user data
+    _emailController.text = "user@gmail.com"; // Replace with actual user data
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'User Profile',
+          style: TextStyle(color: Colors.blue),
+        ),
+        backgroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.black),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications, color: Colors.black),
+            onPressed: () {
+              // Add notification functionality
+            },
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            CircleAvatar(
+              radius: 50,
+              backgroundColor: Colors.blue.shade100,
+              child: const Icon(Icons.store, size: 50, color: Colors.blue),
+            ),
+            const SizedBox(height: 10),
+            TextButton.icon(
+              onPressed: () {
+                // Add functionality to change profile picture
+              },
+              icon: const Icon(Icons.edit, color: Colors.blue),
+              label: const Text(
+                'Change Profile Picture',
+                style: TextStyle(color: Colors.blue),
+              ),
+            ),
+            const SizedBox(height: 20),
+            _buildEditableField('User Name:', _userNameController),
+            const SizedBox(height: 10),
+            _buildEditableField('Contact Number:', _contactNumberController),
+            const SizedBox(height: 10),
+            _buildEditableField('Email:', _emailController),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: () {
+                // Add functionality to save changes
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text(
+                'Save Changes',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditableField(String label, TextEditingController controller) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 14, color: Colors.grey),
+        ),
+        const SizedBox(height: 5),
+        TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            suffixIcon: const Icon(Icons.edit, color: Colors.blue),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class EditBusinessProfileScreen extends StatefulWidget {
+  const EditBusinessProfileScreen({super.key});
+
+  @override
+  _EditBusinessProfileScreenState createState() => _EditBusinessProfileScreenState();
+}
+
+class _EditBusinessProfileScreenState extends State<EditBusinessProfileScreen> {
+  final _businessNameController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _contactNumberController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _productOfferingController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize controllers with existing business data if available
+    _businessNameController.text = "Quench-O Purified Drinking Water"; // Replace with actual data
+    _addressController.text = "42-A Gustilo St., La Paz, Iloilo City"; // Replace with actual data
+    _contactNumberController.text = "0912 345 6789"; // Replace with actual data
+    _emailController.text = "quench_o@gmail.com"; // Replace with actual data
+    _descriptionController.text = "Available Water Types & Pricing\nPurified Water - PHP 25"; // Replace with actual data
+    _productOfferingController.text = "Bottles\nSlim"; // Replace with actual data
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Business Profile',
+          style: TextStyle(color: Colors.blue),
+        ),
+        backgroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.black),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications, color: Colors.black),
+            onPressed: () {
+              // Add notification functionality
+            },
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            CircleAvatar(
+              radius: 50,
+              backgroundColor: Colors.blue.shade100,
+              child: const Icon(Icons.store, size: 50, color: Colors.blue),
+            ),
+            const SizedBox(height: 10),
+            TextButton.icon(
+              onPressed: () {
+                // Add functionality to change profile picture
+              },
+              icon: const Icon(Icons.edit, color: Colors.blue),
+              label: const Text(
+                'Change Profile Picture',
+                style: TextStyle(color: Colors.blue),
+              ),
+            ),
+            const SizedBox(height: 20),
+            _buildEditableField('Business Name:', _businessNameController),
+            const SizedBox(height: 10),
+            _buildEditableField('Address:', _addressController),
+            const SizedBox(height: 10),
+            _buildEditableField('Contact Number:', _contactNumberController),
+            const SizedBox(height: 10),
+            _buildEditableField('Email:', _emailController),
+            const SizedBox(height: 10),
+            _buildEditableField('Description:', _descriptionController, maxLines: 3),
+            const SizedBox(height: 10),
+            _buildEditableField('Product Offering:', _productOfferingController, maxLines: 2),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: () {
+                // Add functionality to save changes
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text(
+                'Save Changes',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditableField(String label, TextEditingController controller, {int maxLines = 1}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 14, color: Colors.grey),
+        ),
+        const SizedBox(height: 5),
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          decoration: InputDecoration(
+            suffixIcon: const Icon(Icons.edit, color: Colors.blue),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ],
     );
   }
 }
