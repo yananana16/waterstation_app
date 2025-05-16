@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/gestures.dart';
 import 'displayingStatus.dart'; // Import the home screen
 
 class SubmitCompliancePage extends StatefulWidget {
@@ -22,47 +23,39 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
   Map<String, String?> selectedFileNames = {};
   Map<String, String?> uploadedUrls = {};
   String? stationOwnerDocID; // Store the document ID of the station owner
+  String? membershipType; // Add this to store membership type
   bool isTermsAccepted = false; // Track terms acceptance
 
   final Map<String, Map<String, String>> documentLabels = {
-  'finished_bacteriological': {
-    'label': 'Finished Product - Bacteriological',
-    'time': 'Every Month',
-  },
-  'source_bacteriological': {
-    'label': 'Source/Deep Well - Bacteriological',
-    'time': 'Every 6 Months',
-  },
-  'source_physical_chemical': {
-    'label': 'Source/Deep Well - Physical-Chemical',
-    'time': 'Every 6 Months',
-  },
-  'finished_physical_chemical': {
-    'label': 'Finished Product - Physical-Chemical',
-    'time': 'Every 6 Months',
-  },
-  'business_permit': {
-    'label': 'Business Permit (BPLO)',
-    'time': 'Every 20th of January',
-  },
-  'dti_cert': {
-    'label': 'DTI Certification',
-    'time': 'Once',
-  },
-  'municipal_clearance': {
-    'label': 'Municipal Environment and Natural Resources',
-    'time': 'Once',
-  },
-  'retail_plan': {
-    'label': 'Plan of the Retail Water Station',
-    'time': 'Once',
-  },
-  'drinking_site_clearance': {
-    'label': 'Drinking Water Site Clearance (Local Health Officer)',
-    'time': 'Once',
-  },
-};
-
+    'business_permit': {
+      'label': 'Business Permit',
+      'time': '',
+    },
+    'sanitary_permit': {
+      'label': 'Sanitary Permit',
+      'time': '',
+    },
+    'finished_bacteriological': {
+      'label': 'Finished Product - Bacteriological',
+      'time': '',
+    },
+    'source_bacteriological': {
+      'label': 'Source/Deep Well - Bacteriological',
+      'time': '',
+    },
+    'source_physical_chemical': {
+      'label': 'Source/Deep Well - Physical-Chemical',
+      'time': '',
+    },
+    'finished_physical_chemical': {
+      'label': 'Finished Product - Physical-Chemical',
+      'time': '',
+    },
+    'certificate_of_association': {
+      'label': 'Certificate of Association',
+      'time': '',
+    },
+  };
 
   @override
   void initState() {
@@ -80,6 +73,7 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
     if (querySnapshot.docs.isNotEmpty) {
       setState(() {
         stationOwnerDocID = querySnapshot.docs.first.id; // Get the document ID
+        membershipType = querySnapshot.docs.first['membership'] as String?;
       });
       fetchUserComplianceFiles();
     }
@@ -97,6 +91,14 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
   }
 
   Future<void> uploadAllFiles() async {
+    final docKeys = getFilteredDocumentKeys();
+    // Require all files to be selected
+    if (!docKeys.every((key) => selectedFileNames[key] != null)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please select all required files before uploading.')),
+      );
+      return;
+    }
     if (!isTermsAccepted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('You must accept the terms and conditions.')),
@@ -232,13 +234,54 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
     }
   }
 
+  List<String> getFilteredDocumentKeys() {
+    if (membershipType == 'new') {
+      return [
+        'business_permit',
+        'sanitary_permit',
+        'finished_bacteriological',
+        'source_bacteriological',
+        'source_physical_chemical',
+        'finished_physical_chemical',
+      ];
+    }
+    if (membershipType == 'existing') {
+      return [
+        'business_permit',
+        'sanitary_permit',
+        'finished_bacteriological',
+        'source_bacteriological',
+        'source_physical_chemical',
+        'finished_physical_chemical',
+        'certificate_of_association',
+      ];
+    }
+    // fallback: show all
+    return documentLabels.keys.toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final docKeys = getFilteredDocumentKeys();
+    final isNew = membershipType == 'new';
+
+    // Check if all required files are selected
+    final allRequiredSelected = docKeys.every((key) => selectedFileNames[key] != null);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Submit Compliance Documents'),
+        title: Text(
+          'Submit Compliance',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+            color: Colors.blue[900],
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back, color: Colors.blue[900]),
           onPressed: () {
             Navigator.pushReplacement(
               context,
@@ -247,17 +290,46 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
           },
         ),
       ),
+      backgroundColor: Colors.white,
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8),
         child: Column(
           children: [
-            Expanded(
-              child: ListView(
-                children: documentLabels.keys.map((category) => complianceUploadCard(category)).toList(),
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 16),
+              child: Image.asset(
+                'assets/illustration_submit.png',
+                height: 140,
               ),
             ),
-            SizedBox(height: 20),
+            Expanded(
+              child: ListView(
+                children: docKeys.map((category) => complianceUploadCard(category)).toList(),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Terms and Conditions',
+                  style: TextStyle(
+                    color: Colors.blue[900],
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                "I certify that the documents I have submitted are true and correct. I understand that providing false information may lead to the denial or cancellation of my membership. I agree to the Terms and Conditions.",
+                style: TextStyle(fontSize: 13, color: Colors.black87),
+              ),
+            ),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Checkbox(
                   value: isTermsAccepted,
@@ -267,31 +339,60 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
                     });
                   },
                 ),
+                SizedBox(width: 4),
                 Expanded(
-                  child: Text(
-                    'I agree to the terms and conditions.',
-                    style: TextStyle(fontSize: 14),
+                  child: RichText(
+                    text: TextSpan(
+                      style: TextStyle(fontSize: 13, color: Colors.black87),
+                      children: [
+                        TextSpan(text: 'I agree to the '),
+                        TextSpan(
+                          text: 'Terms and Conditions.',
+                          style: TextStyle(
+                            color: Colors.blue[700],
+                            decoration: TextDecoration.underline,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                                ),
+                                builder: (context) => _TermsBottomSheet(),
+                              );
+                            },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
-            SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: uploadAllFiles,
-              icon: Icon(Icons.upload),
-              label: Text(
-                'Upload All',
-                style: TextStyle(
-                  color: Colors.white, // Set font color to white
-                  fontWeight: FontWeight.bold, // Set font weight to bold
+            SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: (isTermsAccepted && allRequiredSelected) ? uploadAllFiles : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: (isTermsAccepted && allRequiredSelected) ? Colors.blue[700] : Colors.grey[400],
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Upload All Files',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
               ),
-              style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-                backgroundColor: Colors.blueAccent,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
             ),
+            SizedBox(height: 8),
           ],
         ),
       ),
@@ -299,44 +400,144 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
   }
 
   Widget complianceUploadCard(String category) {
-  return Card(
-    elevation: 4,
-    margin: EdgeInsets.symmetric(vertical: 8),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    child: Padding(
-      padding: EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            documentLabels[category]?['label'] ?? 'Unknown Label',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          Text(
-            'Time: ${documentLabels[category]?['time'] ?? 'Unknown Time'}',
-            style: TextStyle(fontSize: 14, color: Colors.grey),
-          ),
-          if (selectedFileNames[category] != null)
-            Text(
-              "Selected: ${selectedFileNames[category]!}",
-              style: TextStyle(fontSize: 14, color: Colors.blue),
-            ),
-          if (uploadedUrls[category] != null)
-            Text(
-              '✔ Submitted',
-              style: TextStyle(fontSize: 14, color: Colors.green, fontWeight: FontWeight.bold),
-            ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: IconButton(
-              icon: Icon(Icons.attach_file, color: Colors.blueAccent),
-              onPressed: () => pickFile(category),
-            ),
-          ),
-        ],
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.black.withOpacity(0.4), width: 1),
+        borderRadius: BorderRadius.circular(12),
       ),
-    ),
-  );
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => pickFile(category),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          child: Row(
+            children: [
+              Checkbox(
+                value: selectedFileNames[category] != null,
+                onChanged: (_) => pickFile(category),
+                activeColor: Colors.blue[700],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                side: BorderSide(color: Colors.blue[700]!, width: 2),
+              ),
+              SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  documentLabels[category]?['label'] ?? category,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.attach_file, color: Colors.blue[700], size: 20),
+                onPressed: () => pickFile(category),
+                splashRadius: 20,
+                padding: EdgeInsets.zero,
+                constraints: BoxConstraints(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
+// --- Terms and Conditions Bottom Sheet Widget ---
+class _TermsBottomSheet extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text(
+                "Terms and Conditions",
+                style: TextStyle(
+                  color: Colors.blue[900],
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+              SizedBox(height: 16),
+              Text(
+                "Declaration and Agreement for Document Submission",
+                style: TextStyle(
+                  color: Colors.blue[800],
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+              SizedBox(height: 10),
+              Text(
+                "By submitting the required documents to register as a member of the Iloilo City Water Plant and Water Refilling Stations Association, I hereby declare and agree to the following terms:",
+                style: TextStyle(fontSize: 14, color: Colors.black87),
+              ),
+              SizedBox(height: 12),
+              _termsList(),
+              SizedBox(height: 16),
+              Text(
+                "By ticking the checkbox and submitting my application, I confirm that I have read, understood, and agreed to the above terms and conditions.",
+                style: TextStyle(fontSize: 14, color: Colors.black87),
+              ),
+              SizedBox(height: 16),
+              Center(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue[700],
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: Text("Close", style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _termsList() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _termsItem("1. I affirm that all the documents submitted are complete, accurate, and true to the best of my knowledge."),
+        _termsItem("2. I understand that the submitted documents are subject to verification by the Association and relevant government agencies."),
+        _termsItem("3. I acknowledge that any falsification, misrepresentation, or omission of information may result in the denial or revocation of my membership."),
+        _termsItem("4. I agree to comply with the rules, guidelines, and regulatory requirements set by the Association and governing authorities."),
+        _termsItem("5. I authorize the Iloilo City Water Plant and Water Refilling Stations Association to store and use my submitted documents for evaluation and record-keeping purposes in accordance with applicable data privacy laws."),
+      ],
+    );
+  }
+
+  Widget _termsItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 14, color: Colors.black87),
+      ),
+    );
+  }
 }

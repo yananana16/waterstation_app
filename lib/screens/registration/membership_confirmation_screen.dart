@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../login_screen.dart'; // Import the LoginScreen
 
 class MembershipConfirmationScreen extends StatelessWidget {
   const MembershipConfirmationScreen({Key? key}) : super(key: key);
@@ -9,11 +10,24 @@ class MembershipConfirmationScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFEAF6FF), // Light background color
       body: Column(
         children: [
-          const SizedBox(height: 60),
+          const SizedBox(height: 40),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black),
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
 
           // Illustration
           Image.asset(
-            'assets/membership_confirmation_illustration.png', // Replace with your actual image asset
+            'assets/undraw_thought-process_pavs-removebg-preview 1.png', // Replace with your actual image asset
             height: 220,
           ),
 

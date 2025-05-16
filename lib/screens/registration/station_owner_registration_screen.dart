@@ -3,8 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:Hydrify/screens/registration/location_picker_screen.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:Hydrify/screens/login_screen.dart';
 import 'package:Hydrify/screens/registration/product_register_screen.dart';
+import 'package:http/http.dart' as http; // <-- Add this import
+import 'dart:convert'; // <-- Add this import
 
 class StationOwnerRegistrationScreen extends StatefulWidget {
   const StationOwnerRegistrationScreen({super.key});
@@ -45,6 +46,24 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
   bool _isPasswordVisible = false; // Added for password visibility toggle
   bool _isConfirmPasswordVisible = false; // Added for confirm password visibility toggle
 
+  // Helper function to perform reverse geocoding using Nominatim
+  Future<String?> _getAddressFromLatLng(LatLng location) async {
+    final url =
+        'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${location.latitude}&lon=${location.longitude}';
+    try {
+      final response = await http.get(Uri.parse(url), headers: {
+        'User-Agent': 'HydrifyApp/1.0 (your@email.com)'
+      });
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['display_name'] as String?;
+      }
+    } catch (e) {
+      // Optionally handle error
+    }
+    return null;
+  }
+
   // Function to handle registration
   void _registerStationOwner() async {
     if (_stationNameController.text.isEmpty ||
@@ -79,6 +98,9 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
       final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       final String membershipType = args?['membership'] ?? 'new'; // Default to 'new' if not provided
 
+      // Get address from coordinates using Nominatim
+      String? address = await _getAddressFromLatLng(_selectedLocation!);
+
       // Save user details in Firestore
       await _firestore.collection('station_owners').doc(documentId).set({
         'stationName': _stationNameController.text.trim(),
@@ -92,6 +114,7 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
           'latitude': _selectedLocation!.latitude,
           'longitude': _selectedLocation!.longitude,
         },
+        'address': address ?? '', // <-- Store the address from Nominatim
         'userId': userCredential.user!.uid, // Link to Firebase Authentication user ID
         'createdAt': FieldValue.serverTimestamp(), // Add createdAt field
         'status': 'submitreq', // Add status field

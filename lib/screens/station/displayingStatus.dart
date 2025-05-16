@@ -28,11 +28,23 @@ class _DisplayStatusScreenState extends State<DisplayStatusScreen> {
     User? user = _auth.currentUser;
     if (user == null) return;
 
-    DocumentSnapshot userDoc = await _firestore.collection('users').doc(user.uid).get();
+    DocumentSnapshot? userDoc;
+
+    // Try station_owners first
+    userDoc = await _firestore.collection('station_owners').doc(user.uid).get();
+    if (!userDoc.exists) {
+      // Try customers if not found in station_owners
+      userDoc = await _firestore.collection('customers').doc(user.uid).get();
+    }
 
     if (userDoc.exists) {
       setState(() {
-        _status = userDoc['status'];
+        _status = userDoc!['status'];
+      });
+    } else {
+      // Not found in either collection, treat as blocked
+      setState(() {
+        _status = '';
       });
     }
 
@@ -43,16 +55,17 @@ class _DisplayStatusScreenState extends State<DisplayStatusScreen> {
 
   void _logout() async {
     await _auth.signOut();
-    Navigator.pushReplacement(
-      context,
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: _status == 'pending_approval' ? null : AppBar(
         title: const Text('Display Status'),
         actions: [
           IconButton(
@@ -73,10 +86,11 @@ class _DisplayStatusScreenState extends State<DisplayStatusScreen> {
 
   /// Redirect to Login Screen for Blocked Access
   Widget _redirectToLoginScreen() {
-    Future.delayed(Duration.zero, () {
-      Navigator.pushReplacement(
-        context,
+    Future.microtask(() {
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (route) => false,
       );
     });
     return const Center(child: CircularProgressIndicator());
@@ -113,30 +127,69 @@ class _DisplayStatusScreenState extends State<DisplayStatusScreen> {
 
   /// 🟠 **Pending Approval UI**
   Widget _buildPendingApprovalScreen() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text(
-            'PENDING APPROVAL',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.orange,
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
+      body: SafeArea(
+        child: Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 40),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(32),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.assignment_late_rounded, size: 80, color: Color(0xFF609EF4)),
+                const SizedBox(height: 24),
+                const Text(
+                  'Pending Verification',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1A237E),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Please check your email regularly for updates. We will send a confirmation to your email once your account has been verified.',
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.black87,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _logout,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF609EF4),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                    child: const Text(
+                      'Log out',
+                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 10),
-          const Text(
-            'Your documents are under review.\nCheck your email for updates.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _logout,
-            child: const Text('Logout'),
-          ),
-        ],
+        ),
       ),
     );
   }
