@@ -44,51 +44,71 @@ class _LoginScreenState extends State<LoginScreen> {
       if (userCredential.user != null) {
         String uid = userCredential.user!.uid;
 
-        // Check if the user exists in the "station_owners" collection using the userId field
-        QuerySnapshot stationOwnerQuery = await _firestore
-            .collection('station_owners')
-            .where('userId', isEqualTo: uid)
-            .get();
+        // Check the 'users' collection for role
+        DocumentSnapshot userDoc = await _firestore.collection('users').doc(uid).get();
+        if (userDoc.exists && userDoc.data() != null) {
+          final data = userDoc.data() as Map<String, dynamic>;
+          final role = data['role'] ?? '';
 
-        if (stationOwnerQuery.docs.isNotEmpty) {
-          DocumentSnapshot stationOwnerDoc = stationOwnerQuery.docs.first;
-          String status = stationOwnerDoc['status'];
+          if (role == 'owner' || role == 'admin') {
+            // Check station_owners status
+            QuerySnapshot stationOwnerQuery = await _firestore
+                .collection('station_owners')
+                .where('userId', isEqualTo: uid)
+                .get();
 
-          _showMessage("Login successful!");
+            if (stationOwnerQuery.docs.isNotEmpty) {
+              DocumentSnapshot stationOwnerDoc = stationOwnerQuery.docs.first;
+              String status = stationOwnerDoc['status'];
 
-          if (status == 'approved') {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const StationHomeScreen()),
-            );
-          } else if (status == 'submitreq') {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const SubmitCompliancePage()),
-            );
-          } else if (status == 'pending_approval') {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const DisplayStatusScreen()),
-            );
+              _showMessage("Login successful!");
+
+              if (status == 'approved') {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const StationHomeScreen()),
+                );
+              } else if (status == 'submitreq') {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SubmitCompliancePage()),
+                );
+              } else if (status == 'pending_approval') {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const DisplayStatusScreen(),
+                  ),
+                );
+              } else {
+                _showMessage("Invalid status. Please contact support.");
+              }
+              return;
+            } else {
+              _showMessage("Station owner data not found. Please contact support.");
+              return;
+            }
+          } else if (role == 'customer') {
+            // Check if the user exists in the "customers" collection
+            DocumentSnapshot customerDoc = await _firestore.collection('customers').doc(uid).get();
+            if (customerDoc.exists) {
+              _showMessage("Login successful!");
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const CustomerHomeScreen()),
+              );
+              return;
+            } else {
+              _showMessage("Customer data not found. Please contact support.");
+              return;
+            }
           } else {
-            _showMessage("Invalid status. Please contact support.");
+            _showMessage("Unknown user role. Please contact support.");
+            return;
           }
-          return;
         }
 
-        // Check if the user exists in the "customers" collection
-        DocumentSnapshot customerDoc = await _firestore.collection('customers').doc(uid).get();
-        if (customerDoc.exists) {
-          _showMessage("Login successful!");
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const CustomerHomeScreen()),
-          );
-          return;
-        }
-
-        // If the user is not found in either collection
+        // Fallback: If the user is not found in 'users' collection
         _showMessage("User data not found. Please contact support.");
       }
     } on FirebaseAuthException catch (e) {

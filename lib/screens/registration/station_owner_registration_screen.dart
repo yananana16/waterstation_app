@@ -101,6 +101,12 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
       // Get address from coordinates using Nominatim
       String? address = await _getAddressFromLatLng(_selectedLocation!);
 
+      // Get district name from selected district ID
+      String? districtName = districts.firstWhere(
+        (district) => district['id'] == _selectedDistrict,
+        orElse: () => {'name': ''}
+      )['name'];
+
       // Save user details in Firestore
       await _firestore.collection('station_owners').doc(documentId).set({
         'stationName': _stationNameController.text.trim(),
@@ -110,6 +116,7 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
         'phone': _phoneController.text.trim(),
         'email': _emailController.text.trim(),
         'districtID': _selectedDistrict,
+        'districtName': districtName, // <-- Add districtName here
         'location': {
           'latitude': _selectedLocation!.latitude,
           'longitude': _selectedLocation!.longitude,
@@ -119,6 +126,17 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
         'createdAt': FieldValue.serverTimestamp(), // Add createdAt field
         'status': 'submitreq', // Add status field
         'membership': membershipType, // Add membership field
+      });
+
+      // Add user to 'users' collection with role and president flags
+      await _firestore.collection('users').doc(userCredential.user!.uid).set({
+        'role': 'owner',
+        'federated_president': false,
+        'district_president': false,
+        'email': _emailController.text.trim(),
+        'stationOwnerDocId': documentId,
+        'customUID': documentId, // <-- Add customUID field
+        'createdAt': FieldValue.serverTimestamp(),
       });
 
       // Show success dialog with improved UI
@@ -159,6 +177,7 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
               'phone': _phoneController.text.trim(),
               'email': _emailController.text.trim(),
               'districtID': _selectedDistrict,
+              'districtName': districtName, // <-- Add districtName here
               'location': _selectedLocation,
               'ownerDocId': documentId, // Pass the document ID of the registered owner
             },

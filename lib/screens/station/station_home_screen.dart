@@ -545,8 +545,26 @@ class OrdersScreen extends StatelessWidget {
   }
 }
 
-class InventoryScreen extends StatelessWidget {
+class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
+
+  @override
+  State<InventoryScreen> createState() => _InventoryScreenState();
+}
+
+class _InventoryScreenState extends State<InventoryScreen> {
+  // Example product list (replace with Firestore integration as needed)
+  List<Map<String, dynamic>> _products = [
+    {'name': 'Purified Water', 'price': 25, 'type': 'Bottled'},
+    {'name': 'Mineral Water', 'price': 30, 'type': 'Bottled'},
+  ];
+
+  void _navigateToProductInventory(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ProductInventoryScreen()),
+    );
+  }
 
   void _showSalesScreen(BuildContext context) {
     String selectedMonth = 'Any';
@@ -821,7 +839,7 @@ class InventoryScreen extends StatelessWidget {
                       const Text('Sales', style: TextStyle(fontSize: 12, color: Colors.blue)), // Adjusted font size
                     ],
                   ),
-                  _buildActionButton(Icons.inventory, 'Inventory', () {}),
+                  _buildActionButton(Icons.inventory, 'Inventory', () => _navigateToProductInventory(context)),
                   _buildActionButton(Icons.report, 'Report', () {
                     Navigator.push(
                       context,
@@ -839,6 +857,272 @@ class InventoryScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class ProductInventoryScreen extends StatefulWidget {
+  @override
+  State<ProductInventoryScreen> createState() => _ProductInventoryScreenState();
+}
+
+class _ProductInventoryScreenState extends State<ProductInventoryScreen> {
+  final _auth = FirebaseAuth.instance;
+  final _firestore = FirebaseFirestore.instance;
+  List<Map<String, dynamic>> _products = [];
+  bool _loading = true;
+  String? _stationOwnerDocId;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStationOwnerDocIdAndProducts();
+  }
+
+  Future<void> _fetchStationOwnerDocIdAndProducts() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      setState(() {
+        _products = [];
+        _loading = false;
+      });
+      return;
+    }
+    try {
+      // Find the station_owner document where userId == user.uid
+      final query = await _firestore
+          .collection('station_owners')
+          .where('userId', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+      if (query.docs.isEmpty) {
+        setState(() {
+          _products = [];
+          _loading = false;
+        });
+        return;
+      }
+      final docId = query.docs.first.id;
+      _stationOwnerDocId = docId;
+      await _fetchProducts();
+    } catch (e) {
+      setState(() {
+        _products = [];
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _fetchProducts() async {
+    if (_stationOwnerDocId == null) {
+      setState(() {
+        _products = [];
+        _loading = false;
+      });
+      return;
+    }
+    try {
+      final snapshot = await _firestore
+          .collection('station_owners')
+          .doc(_stationOwnerDocId)
+          .collection('products')
+          .get();
+      setState(() {
+        _products = snapshot.docs.map((doc) {
+          final data = doc.data();
+          data['id'] = doc.id;
+          return data;
+        }).toList();
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _products = [];
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _addProduct(Map<String, dynamic> product) async {
+    final user = _auth.currentUser;
+    if (user == null || _stationOwnerDocId == null) return;
+    await _firestore
+        .collection('station_owners')
+        .doc(_stationOwnerDocId)
+        .collection('products')
+        .add(product);
+    await _fetchProducts();
+  }
+
+  Future<void> _updateProduct(String docId, Map<String, dynamic> product) async {
+    final user = _auth.currentUser;
+    if (user == null || _stationOwnerDocId == null) return;
+    await _firestore
+        .collection('station_owners')
+        .doc(_stationOwnerDocId)
+        .collection('products')
+        .doc(docId)
+        .set(product);
+    await _fetchProducts();
+  }
+
+  void _showAddProductDialog() {
+    final _nameController = TextEditingController();
+    final _priceController = TextEditingController();
+    final _typeController = TextEditingController();
+    final _stockController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Product'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Product Name'),
+            ),
+            TextField(
+              controller: _priceController,
+              decoration: const InputDecoration(labelText: 'Price'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: _typeController,
+              decoration: const InputDecoration(labelText: 'Type'),
+            ),
+            TextField(
+              controller: _stockController,
+              decoration: const InputDecoration(labelText: 'Stock'),
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final product = {
+                'name': _nameController.text,
+                'price': int.tryParse(_priceController.text) ?? 0,
+                'type': _typeController.text,
+                'stock': int.tryParse(_stockController.text) ?? 0,
+              };
+              await _addProduct(product);
+              Navigator.pop(context);
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditProductDialog(int index) {
+    final product = _products[index];
+    final _nameController = TextEditingController(text: product['name']);
+    final _priceController = TextEditingController(text: product['price'].toString());
+    final _typeController = TextEditingController(text: product['type']);
+    final _stockController = TextEditingController(text: product['stock'].toString());
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Customize Product'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Product Name'),
+            ),
+            TextField(
+              controller: _priceController,
+              decoration: const InputDecoration(labelText: 'Price'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: _typeController,
+              decoration: const InputDecoration(labelText: 'Type'),
+            ),
+            TextField(
+              controller: _stockController,
+              decoration: const InputDecoration(labelText: 'Stock'),
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final updatedProduct = {
+                'name': _nameController.text,
+                'price': int.tryParse(_priceController.text) ?? 0,
+                'type': _typeController.text,
+                'stock': int.tryParse(_stockController.text) ?? 0,
+              };
+              await _updateProduct(product['id'], updatedProduct);
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Product Inventory', style: TextStyle(color: Colors.blue)),
+        backgroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.black),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add, color: Colors.blue),
+            onPressed: _showAddProductDialog,
+            tooltip: 'Add Product',
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _products.isEmpty
+                ? const Center(child: Text('No products yet.'))
+                : ListView.builder(
+                    itemCount: _products.length,
+                    itemBuilder: (context, index) {
+                      final product = _products[index];
+                      final name = product['name']?.toString() ?? '';
+                      final type = product['type']?.toString() ?? '';
+                      final price = product['price'] != null ? product['price'].toString() : '0';
+                      final stock = product['stock'] != null ? product['stock'].toString() : '0';
+                      return Card(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        color: Colors.blue.shade50,
+                        child: ListTile(
+                          title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text('Type: $type  |  Price: ₱$price  |  Stock: $stock'),
+                          trailing: TextButton(
+                            onPressed: () => _showEditProductDialog(index),
+                            child: const Text('Customize'),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
       ),
     );
   }

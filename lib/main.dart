@@ -8,7 +8,6 @@ import 'package:Hydrify/screens/registration/station_owner_registration_screen.d
 import 'firebase_options.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/login_screen.dart'; 
-import 'screens/station/displayingStatus.dart';
 import 'screens/customer/customer_home_screen.dart';
 
 void main() async {

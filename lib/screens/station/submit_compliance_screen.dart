@@ -4,8 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/gestures.dart';
-import 'displayingStatus.dart'; // Import the home screen
+import 'package:flutter/gestures.dart'; // Import the home screen
+import 'displayingStatus.dart'; // Import DisplayStatusScreen
 
 class SubmitCompliancePage extends StatefulWidget {
   const SubmitCompliancePage({super.key});
@@ -24,6 +24,7 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
   Map<String, String?> uploadedUrls = {};
   String? stationOwnerDocID; // Store the document ID of the station owner
   String? membershipType; // Add this to store membership type
+  String? stationStatus; // Add this to store the station status
   bool isTermsAccepted = false; // Track terms acceptance
 
   final Map<String, Map<String, String>> documentLabels = {
@@ -74,6 +75,7 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
       setState(() {
         stationOwnerDocID = querySnapshot.docs.first.id; // Get the document ID
         membershipType = querySnapshot.docs.first['membership'] as String?;
+        stationStatus = querySnapshot.docs.first['status'] as String?; // Get status
       });
       fetchUserComplianceFiles();
     }
@@ -131,6 +133,9 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
 
     await Future.wait(uploadTasks);
 
+    // Add submission_date to the uploaded document
+    newUploadedUrls['submission_date'] = DateTime.now().toIso8601String();
+
     await firestore.collection('compliance_uploads').doc(stationOwnerDocID).set(
       newUploadedUrls,
       SetOptions(merge: true),
@@ -142,11 +147,12 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
       selectedFileNames.clear();
     });
 
-    await checkAndUpdateApprovalStatus();
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('All files uploaded successfully!')),
     );
+
+    // Immediately update status to pending_approval after successful upload
+    await checkAndUpdateApprovalStatus();
   }
 
   Future<String?> uploadFile(String category) async {
@@ -228,9 +234,22 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
     if (allUploaded) {
       await firestore.collection('station_owners').doc(stationOwnerDocID).update({'status': 'pending_approval'});
 
+      setState(() {
+        stationStatus = 'pending_approval'; // Update local status
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('All documents submitted! Status updated to Pending Approval.')),
       );
+
+      // Navigate to DisplayStatusScreen after upload and status update
+      Future.delayed(const Duration(milliseconds: 500), () {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const DisplayStatusScreen()),
+          (route) => false,
+        );
+      });
     }
   }
 
@@ -280,15 +299,6 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.blue[900]),
-          onPressed: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const DisplayStatusScreen()),
-            );
-          },
-        ),
       ),
       backgroundColor: Colors.white,
       body: Padding(
@@ -302,6 +312,33 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
                 height: 140,
               ),
             ),
+            if (stationStatus == 'pending_approval') // Show status banner
+              Container(
+                width: double.infinity,
+                margin: EdgeInsets.only(bottom: 12),
+                padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.orange[100],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange[300]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.hourglass_top, color: Colors.orange[800]),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Your documents are under review. Status: Pending Verification.',
+                        style: TextStyle(
+                          color: Colors.orange[900],
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Expanded(
               child: ListView(
                 children: docKeys.map((category) => complianceUploadCard(category)).toList(),

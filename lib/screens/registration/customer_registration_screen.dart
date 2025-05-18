@@ -60,7 +60,14 @@ class _CustomerRegistrationScreenState extends State<CustomerRegistrationScreen>
           'middleInitial': middleIni,
           'phone': phone,
           'email': email,
-          'role': 'customer', // Assigning the role
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // Add to users collection with role: "customers"
+        await _firestore.collection('users').doc(uid).set({
+          'uid': uid,
+          'role': 'customer',
+          'email': email,
           'createdAt': FieldValue.serverTimestamp(),
         });
 

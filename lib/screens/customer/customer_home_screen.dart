@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import '../login_screen.dart';
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({super.key});
 
@@ -575,76 +575,102 @@ class StationsScreen extends StatelessWidget {
             ),
           ),
           backgroundColor: Colors.white,
-          body: ListView.builder(
-            itemCount: 5, // Number of stations
-            itemBuilder: (context, index) {
-              return Card(
-                color: const Color(0xFFE3F2FD), // Light blue card background
-                margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              index == 0 ? 'AQUA SURE' : 'QUENCH-O GUSTILO BRANCH',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF0D47A1), // Darker blue text
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              index == 0
-                                  ? 'San Isidro, Jaro, Iloilo City\nOperating Hours: 8:00 AM - 7:00 PM'
-                                  : 'Gustilo St, La Paz, Iloilo City\nOperating Hours: 7:00 AM - 8:30 PM',
-                              style: const TextStyle(color: Colors.black54),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: const [
-                                Icon(Icons.star, color: Colors.amber, size: 16),
-                                Icon(Icons.star, color: Colors.amber, size: 16),
-                                Icon(Icons.star, color: Colors.amber, size: 16),
-                                Icon(Icons.star, color: Colors.amber, size: 16),
-                                Icon(Icons.star_border, color: Colors.amber, size: 16),
+          body: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('station_owners').snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Center(child: Text('No stations found.'));
+              }
+              final stations = snapshot.data!.docs;
+              return ListView.builder(
+                itemCount: stations.length,
+                itemBuilder: (context, index) {
+                  final station = stations[index];
+                  final firstName = station['firstName'] ?? '';
+                  final middleInitial = station['middleInitial'] ?? '';
+                  final lastName = station['lastName'] ?? '';
+                  final ownerName = '$firstName $middleInitial $lastName'.replaceAll(RegExp(r'\s+'), ' ').trim();
+                  final stationName = station['stationName'] ?? 'Station';
+                  final address = station['address'] ?? '';
+                  return Card(
+                    color: const Color(0xFFE3F2FD),
+                    margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  stationName,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0D47A1),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Owner: $ownerName',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  address,
+                                  style: const TextStyle(color: Colors.black54),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: const [
+                                    Icon(Icons.star, color: Colors.amber, size: 16),
+                                    Icon(Icons.star, color: Colors.amber, size: 16),
+                                    Icon(Icons.star, color: Colors.amber, size: 16),
+                                    Icon(Icons.star, color: Colors.amber, size: 16),
+                                    Icon(Icons.star_border, color: Colors.amber, size: 16),
+                                  ],
+                                ),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Column(
-                        children: [
-                          IconButton(
-                            onPressed: () {},
-                            icon: const Icon(Icons.arrow_forward_ios, color: Color(0xFF1565C0)),
                           ),
-                          ElevatedButton.icon(
-                            onPressed: () {},
-                            icon: const Icon(
-                              Icons.shopping_cart,
-                              size: 16,
-                              color: Colors.white, // Set icon color to white
-                            ),
-                            label: const Text(
-                              'Order',
-                              style: TextStyle(color: Colors.white), // Set font color to white
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF1565C0), // Dark blue button
-                            ),
+                          const SizedBox(width: 10),
+                          Column(
+                            children: [
+                              IconButton(
+                                onPressed: () {},
+                                icon: const Icon(Icons.arrow_forward_ios, color: Color(0xFF1565C0)),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: () {},
+                                icon: const Icon(
+                                  Icons.shopping_cart,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                                label: const Text(
+                                  'Order',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF1565C0),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               );
             },
           ),
@@ -870,22 +896,22 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 16),
             // My Account Section
             _buildSectionTitle('My Account'),
-            _buildListTile(Icons.security, 'Account & Security'),
-            _buildListTile(Icons.location_on, 'My Addresses'),
-            _buildListTile(Icons.account_balance_wallet, 'Bank Accounts/Cards'),
+            _buildListTile(Icons.security, 'Account & Security', context),
+            _buildListTile(Icons.location_on, 'My Addresses', context),
+            _buildListTile(Icons.account_balance_wallet, 'Bank Accounts/Cards', context),
             const SizedBox(height: 16),
             // Settings Section
             _buildSectionTitle('Settings'),
-            _buildListTile(Icons.lock, 'Change Password'),
-            _buildListTile(Icons.notifications, 'Notification Preferences'),
-            _buildListTile(Icons.language, 'Language'),
+            _buildListTile(Icons.lock, 'Change Password', context),
+            _buildListTile(Icons.notifications, 'Notification Preferences', context),
+            _buildListTile(Icons.language, 'Language', context),
             const SizedBox(height: 16),
             // Support Section
             _buildSectionTitle('Support'),
-            _buildListTile(Icons.help, 'Help Centre'),
-            _buildListTile(Icons.policy, 'Policies'),
-            _buildListTile(Icons.info, 'About'),
-            _buildListTile(Icons.logout, 'Log Out'),
+            _buildListTile(Icons.help, 'Help Centre', context),
+            _buildListTile(Icons.policy, 'Policies', context),
+            _buildListTile(Icons.info, 'About', context),
+            _buildListTile(Icons.logout, 'Log Out', context),
           ],
         ),
       ),
@@ -906,15 +932,22 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildListTile(IconData icon, String title) {
+  Widget _buildListTile(IconData icon, String title, BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       child: ListTile(
         leading: Icon(icon, color: const Color(0xFF1565C0)),
         title: Text(title),
         trailing: const Icon(Icons.arrow_forward_ios, color: Colors.grey),
-        onTap: () {
-          // Handle navigation or action
+        onTap: () async {
+          if (title == 'Log Out') {
+            await FirebaseAuth.instance.signOut();
+            // Replace LoginScreen() with your actual login screen widget
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => LoginScreen()),
+            );
+          }
+          // Handle other tiles if needed
         },
       ),
     );
