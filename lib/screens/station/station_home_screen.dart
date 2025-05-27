@@ -124,46 +124,49 @@ class HomeScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Top Row with Logo, "H2Go" Text, and Icons
-            Center(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Image.asset('assets/logo.png', height: 70), // Adjusted logo size
-                      const SizedBox(width: 15), // Increased spacing
-                      const Text(
-                        'H2OGo',
-                        style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.blue), // Slightly larger text
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.notifications, color: Colors.blue),
-                        onPressed: () {
-                          // Add notification functionality
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.settings, color: Colors.blue),
-                        onPressed: () {
-                          // Add settings functionality
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.person, color: Colors.blue),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ],
+            Padding(
+              padding: const EdgeInsets.only(top: 32.0), // <-- Add top margin here
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Image.asset('assets/logo.png', height: 70), // Adjusted logo size
+                        const SizedBox(width: 15), // Increased spacing
+                        const Text(
+                          'H2OGo',
+                          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.blue), // Slightly larger text
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.notifications, color: Colors.blue),
+                          onPressed: () {
+                            // Add notification functionality
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.settings, color: Colors.blue),
+                          onPressed: () {
+                            // Add settings functionality
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.person, color: Colors.blue),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 20), // Adjusted spacing below the top row
@@ -292,6 +295,78 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
+// --- Reusable Custom AppBar Widget ---
+class CustomTopBar extends StatelessWidget {
+  final String title;
+  final bool showProfileIcon;
+  final VoidCallback? onProfileTap;
+  final List<Widget>? extraActions;
+  final double fontSize; // Add fontSize parameter
+
+  const CustomTopBar({
+    super.key,
+    required this.title,
+    this.showProfileIcon = true,
+    this.onProfileTap,
+    this.extraActions,
+    this.fontSize = 26, // Default to 26
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 32.0, left: 0, right: 0, bottom: 0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              const SizedBox(width: 16),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: fontSize, // Use the parameter
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications, color: Colors.blue),
+                onPressed: () {
+                  // Add notification functionality
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.settings, color: Colors.blue),
+                onPressed: () {
+                  // Add settings functionality
+                },
+              ),
+              if (showProfileIcon)
+                IconButton(
+                  icon: const Icon(Icons.person, color: Colors.blue),
+                  onPressed: onProfileTap ??
+                      () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                        );
+                      },
+                ),
+              if (extraActions != null) ...extraActions!,
+              const SizedBox(width: 8),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class ComplianceScreen extends StatefulWidget {
   const ComplianceScreen({super.key});
 
@@ -389,170 +464,152 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Compliance', style: TextStyle(color: Colors.blue)),
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications, color: Colors.blue),
-            onPressed: () {
-              // Add notification functionality
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings, color: Colors.blue),
-            onPressed: () {
-              // Add settings functionality
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.blue),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfileScreen()),
-              );
-            },
-          ),
-        ],
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : stationOwnerId == null
-              ? const Center(child: Text('No station owner record found.'))
-              : uploadedFiles.isEmpty
-                  ? const Center(child: Text('No uploaded compliance files found.'))
-                  : ListView.builder(
-                      itemCount: uploadedFiles.length,
-                      itemBuilder: (context, index) {
-                        final file = uploadedFiles[index];
-                        final fileUrl = Supabase.instance.client.storage
-                            .from('compliance_docs')
-                            .getPublicUrl('uploads/$stationOwnerId/${file.name}');
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const CustomTopBar(title: 'Compliance'),
+            Expanded(
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : stationOwnerId == null
+                      ? const Center(child: Text('No station owner record found.'))
+                      : uploadedFiles.isEmpty
+                          ? const Center(child: Text('No uploaded compliance files found.'))
+                          : ListView.builder(
+                              itemCount: uploadedFiles.length,
+                              itemBuilder: (context, index) {
+                                final file = uploadedFiles[index];
+                                final fileUrl = Supabase.instance.client.storage
+                                    .from('compliance_docs')
+                                    .getPublicUrl('uploads/$stationOwnerId/${file.name}');
 
-                        final extension = file.name.split('.').last.toLowerCase();
-                        final isImage = ['png', 'jpg', 'jpeg'].contains(extension);
-                        final isPdf = extension == 'pdf';
-                        final isWord = extension == 'doc' || extension == 'docx';
+                                final extension = file.name.split('.').last.toLowerCase();
+                                final isImage = ['png', 'jpg', 'jpeg'].contains(extension);
+                                final isPdf = extension == 'pdf';
+                                final isWord = extension == 'doc' || extension == 'docx';
 
-                        final categoryLabel = _extractCategoryLabel(file.name, stationOwnerId!);
-                        final status = _extractStatus(file.name);
+                                final categoryLabel = _extractCategoryLabel(file.name, stationOwnerId!);
+                                final status = _extractStatus(file.name);
 
-                        return Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  categoryLabel,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue,
-                                    fontSize: 16,
+                                return Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  file.name,
-                                  style: const TextStyle(fontSize: 13, color: Colors.black87),
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    const Text(
-                                      "Status: ",
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                    ),
-                                    Text(
-                                      status,
-                                      style: const TextStyle(
-                                        color: Colors.green,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      if (_expandedIndexes.contains(index)) {
-                                        _expandedIndexes.remove(index);
-                                      } else {
-                                        _expandedIndexes.add(index);
-                                      }
-                                    });
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    foregroundColor: Colors.blue,
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                      side: const BorderSide(color: Colors.blue),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    _expandedIndexes.contains(index) ? 'Hide File' : 'View File',
-                                    style: const TextStyle(color: Colors.blue),
-                                  ),
-                                ),
-                                if (_expandedIndexes.contains(index)) ...[
-                                  const SizedBox(height: 8),
-                                  if (isImage)
-                                    Image.network(
-                                      fileUrl,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (context, error, stackTrace) =>
-                                          const Padding(
-                                            padding: EdgeInsets.all(16.0),
-                                            child: Text('Failed to load image'),
-                                          ),
-                                    )
-                                  else if (isPdf || isWord)
-                                    Row(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Icon(
-                                          isPdf ? Icons.picture_as_pdf : Icons.description,
-                                          color: isPdf ? Colors.red : Colors.blue,
-                                        ),
-                                        const SizedBox(width: 8),
                                         Text(
-                                          isPdf ? 'PDF Document' : 'Word Document',
-                                          style: const TextStyle(fontSize: 14),
+                                          categoryLabel,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.blue,
+                                            fontSize: 16,
+                                          ),
                                         ),
-                                        const Spacer(),
-                                        IconButton(
-                                          icon: const Icon(Icons.open_in_new, color: Colors.blue),
-                                          onPressed: () async {
-                                            if (await canLaunchUrl(Uri.parse(fileUrl))) {
-                                              await launchUrl(Uri.parse(fileUrl), mode: LaunchMode.externalApplication);
-                                            } else {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(content: Text('Could not open file')),
-                                              );
-                                            }
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          file.name,
+                                          style: const TextStyle(fontSize: 13, color: Colors.black87),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            const Text(
+                                              "Status: ",
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                            ),
+                                            Text(
+                                              status,
+                                              style: const TextStyle(
+                                                color: Colors.green,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            setState(() {
+                                              if (_expandedIndexes.contains(index)) {
+                                                _expandedIndexes.remove(index);
+                                              } else {
+                                                _expandedIndexes.add(index);
+                                              }
+                                            });
                                           },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.white,
+                                            foregroundColor: Colors.blue,
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                              side: const BorderSide(color: Colors.blue),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            _expandedIndexes.contains(index) ? 'Hide File' : 'View File',
+                                            style: const TextStyle(color: Colors.blue),
+                                          ),
                                         ),
+                                        if (_expandedIndexes.contains(index)) ...[
+                                          const SizedBox(height: 8),
+                                          if (isImage)
+                                            Image.network(
+                                              fileUrl,
+                                              fit: BoxFit.contain,
+                                              errorBuilder: (context, error, stackTrace) =>
+                                                  const Padding(
+                                                    padding: EdgeInsets.all(16.0),
+                                                    child: Text('Failed to load image'),
+                                                  ),
+                                            )
+                                          else if (isPdf || isWord)
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  isPdf ? Icons.picture_as_pdf : Icons.description,
+                                                  color: isPdf ? Colors.red : Colors.blue,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  isPdf ? 'PDF Document' : 'Word Document',
+                                                  style: const TextStyle(fontSize: 14),
+                                                ),
+                                                const Spacer(),
+                                                IconButton(
+                                                  icon: const Icon(Icons.open_in_new, color: Colors.blue),
+                                                  onPressed: () async {
+                                                    if (await canLaunchUrl(Uri.parse(fileUrl))) {
+                                                      await launchUrl(Uri.parse(fileUrl), mode: LaunchMode.externalApplication);
+                                                    } else {
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        const SnackBar(content: Text('Could not open file')),
+                                                      );
+                                                    }
+                                                  },
+                                                ),
+                                              ],
+                                            )
+                                          else
+                                            const Text('Unsupported file type', style: TextStyle(color: Colors.red)),
+                                        ],
                                       ],
-                                    )
-                                  else
-                                    const Text('Unsupported file type', style: TextStyle(color: Colors.red)),
-                                ],
-                              ],
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                          ),
-                        );
-                      },
-                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -889,7 +946,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildTopBar(context),
+            const CustomTopBar(
+              title: 'Order and Delivery',
+              fontSize: 20, // Lower font size for OrdersScreen
+            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -1131,20 +1191,314 @@ class DeliveriesScreen extends StatelessWidget {
 class InventoryScreen extends StatelessWidget {
   const InventoryScreen({super.key});
 
+  // Example data for the dashboard
+  final int returnedContainers = 35;
+  final int numberOfOrders = 110;
+  final int currentContainers = 685;
+
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Inventory', style: TextStyle(color: Colors.blue)),
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
-      body: const Center(
-        child: Text(
-          'Inventory (Coming Soon)',
-          style: TextStyle(color: Colors.blue, fontSize: 18),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top bar with title and icons
+            Padding(
+              padding: const EdgeInsets.only(top: 24.0, left: 16, right: 16, bottom: 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Sales and Inventory',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.notifications, color: Colors.black),
+                        onPressed: () {},
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.settings, color: Colors.black),
+                        onPressed: () {},
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Illustration
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Image.asset(
+                'assets/Sales and Inventory.png',
+                height: 120,
+                fit: BoxFit.contain,
+              ),
+            ),
+            // Date and Time Row
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    DateFormat('EEEE, d MMMM yyyy').format(now),
+                    style: const TextStyle(fontSize: 14, color: Colors.blue, fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    DateFormat('hh:mm a').format(now) + " PST",
+                    style: const TextStyle(fontSize: 14, color: Colors.blue, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Returned Containers & Number of Orders
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      child: Column(
+                        children: [
+                          const Text(
+                            "Returned Containers:",
+                            style: TextStyle(fontSize: 14, color: Colors.blue, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '$returnedContainers',
+                            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blue),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      child: Column(
+                        children: [
+                          const Text(
+                            "Number of Orders:",
+                            style: TextStyle(fontSize: 14, color: Colors.blue, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '$numberOfOrders',
+                            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blue),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Current Number of Containers
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                child: Column(
+                  children: [
+                    const Text(
+                      "Current Number of Containers:",
+                      style: TextStyle(fontSize: 14, color: Colors.blue, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '$currentContainers',
+                      style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blue),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Quick Action Buttons
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildQuickAction(Icons.show_chart, "Sales"),
+                  GestureDetector(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                        ),
+                        builder: (context) {
+                          return Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  "Container Inventory",
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                                const SizedBox(height: 18),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.shade50,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(vertical: 18),
+                                        child: Column(
+                                          children: [
+                                            const Icon(Icons.radio_button_checked, color: Colors.blue, size: 32),
+                                            const SizedBox(height: 8),
+                                            const Text(
+                                              "Round Gallon",
+                                              style: TextStyle(fontSize: 15, color: Colors.blue, fontWeight: FontWeight.bold),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            const Text(
+                                              "Stock: 48",
+                                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            ElevatedButton.icon(
+                                              onPressed: () {
+                                                // Add functionality to add stock for Round Gallon
+                                              },
+                                              icon: const Icon(Icons.add, size: 18),
+                                              label: const Text("Add Stock"),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.blue,
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(0, 36),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.shade50,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(vertical: 18),
+                                        child: Column(
+                                          children: [
+                                            const Icon(Icons.crop_square, color: Colors.blue, size: 32),
+                                            const SizedBox(height: 8),
+                                            const Text(
+                                              "Slim Gallon",
+                                              style: TextStyle(fontSize: 15, color: Colors.blue, fontWeight: FontWeight.bold),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            const Text(
+                                              "Stock: 62",
+                                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            ElevatedButton.icon(
+                                              onPressed: () {
+                                                // Add functionality to add stock for Slim Gallon
+                                              },
+                                              icon: const Icon(Icons.add, size: 18),
+                                              label: const Text("Add Stock"),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.blue,
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(0, 36),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                    child: _buildQuickAction(Icons.inventory_2, "Inventory"),
+                  ),
+                  _buildQuickAction(Icons.insert_chart, "Report"),
+                  _buildQuickAction(Icons.groups, "Staffs"),
+                ],
+              ),
+            ),
+            // Spacer to push bottom nav up
+            const Spacer(),
+            // ...existing code for bottom navigation bar...
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildQuickAction(IconData icon, String label) {
+    return Column(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            shape: BoxShape.circle,
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Icon(icon, color: Colors.blue, size: 28),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            color: Colors.blue,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1198,78 +1552,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile', style: TextStyle(color: Colors.blue)),
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black), // Set icon color to black
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-              // Add notification functionality
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              // Add settings functionality
-            },
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+      backgroundColor: Colors.white,
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const SizedBox(height: 20),
-            CircleAvatar(
-              radius: 50,
-              backgroundColor: Colors.blue.shade100,
-              child: const Icon(Icons.store, size: 50, color: Colors.blue),
+            const CustomTopBar(title: 'Profile', showProfileIcon: false),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 20),
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: Colors.blue.shade100,
+                      child: const Icon(Icons.store, size: 50, color: Colors.blue),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      _stationName,
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      _address,
+                      style: const TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      _fullName,
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                    Text(
+                      _email,
+                      style: const TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 20),
+                    _buildProfileButton(Icons.business, 'Edit Business Profile', () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const EditBusinessProfileScreen()),
+                      );
+                    }),
+                    _buildProfileButton(Icons.person, 'Edit User Profile', () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const EditUserProfileScreen()),
+                      );
+                    }),
+                    _buildProfileButton(Icons.assignment, 'View Accreditation Status', () {
+                      // Navigate to Accreditation Status screen
+                    }),
+                    _buildProfileButton(Icons.lock, 'Change Password', () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const ChangePasswordScreen()),
+                      );
+                    }),
+                    _buildProfileButton(Icons.logout, 'Log Out', _logout, isDestructive: true),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 20),
-            Text(
-              _stationName,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              _address,
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              _fullName,
-              style: const TextStyle(fontSize: 18),
-            ),
-            Text(
-              _email,
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 20),
-            _buildProfileButton(Icons.business, 'Edit Business Profile', () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const EditBusinessProfileScreen()),
-              );
-            }),
-            _buildProfileButton(Icons.person, 'Edit User Profile', () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const EditUserProfileScreen()),
-              );
-            }),
-            _buildProfileButton(Icons.assignment, 'View Accreditation Status', () {
-              // Navigate to Accreditation Status screen
-            }),
-            _buildProfileButton(Icons.lock, 'Change Password', () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ChangePasswordScreen()),
-              );
-            }),
-            _buildProfileButton(Icons.logout, 'Log Out', _logout, isDestructive: true),
           ],
         ),
       ),

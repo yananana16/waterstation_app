@@ -143,6 +143,110 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  Future<void> _showForgotPasswordDialog() async {
+    final TextEditingController _resetEmailController = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.lock_reset, size: 48, color: Color(0xFF609EF4)),
+              const SizedBox(height: 12),
+              const Text(
+                'Reset Password',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF222B45),
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Enter your email address to receive a password reset link.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 15, color: Colors.black54),
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                controller: _resetEmailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  hintText: 'Enter your email',
+                  prefixIcon: const Icon(Icons.email_outlined),
+                  filled: true,
+                  fillColor: Colors.grey[200],
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.grey[700],
+                      textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF609EF4),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+                    ),
+                    onPressed: () async {
+                      String resetEmail = _resetEmailController.text.trim();
+                      if (resetEmail.isEmpty) {
+                        _showMessage("Please enter your email.");
+                        return;
+                      }
+                      try {
+                        await _auth.sendPasswordResetEmail(email: resetEmail);
+                        Navigator.of(context).pop();
+                        Fluttertoast.showToast(
+                          msg: "Password reset email sent!",
+                          toastLength: Toast.LENGTH_SHORT,
+                          gravity: ToastGravity.BOTTOM,
+                          backgroundColor: Colors.green,
+                          textColor: Colors.white,
+                        );
+                      } on FirebaseAuthException catch (e) {
+                        String errorMsg = "Failed to send reset email.";
+                        if (e.code == 'user-not-found') {
+                          errorMsg = "No user found for this email.";
+                        }
+                        _showMessage(errorMsg);
+                      }
+                    },
+                    child: const Text(
+                      'Send',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -207,7 +311,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: GestureDetector(
-                    onTap: () {},
+                    onTap: _showForgotPasswordDialog,
                     child: const Text(
                       "Forgot Password? Reset",
                       style: TextStyle(color: Color(0xFF609EF4), fontWeight: FontWeight.bold),

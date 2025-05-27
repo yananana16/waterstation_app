@@ -99,11 +99,92 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
     setState(() => _isLoading = true);
 
     try {
+      // Check if email is already registered
+      final List<String> signInMethods = await _auth.fetchSignInMethodsForEmail(_emailController.text.trim());
+      if (signInMethods.isNotEmpty) {
+        setState(() => _isLoading = false);
+        _showMessage("This email is already registered. Please use another email or login.");
+        return;
+      }
+
+      // Show email verification dialog before registration
+      bool? proceed = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => WillPopScope(
+          onWillPop: () async => false,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            backgroundColor: Colors.white,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  padding: const EdgeInsets.all(18),
+                  child: const Icon(Icons.email_outlined, color: Colors.blue, size: 70),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  "Verify Your Email",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  "We will send a verification link to:\n${_emailController.text.trim()}",
+                  style: const TextStyle(fontSize: 16, color: Colors.black87),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  "Please make sure your email is correct.",
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+            actionsAlignment: MainAxisAlignment.center,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                ),
+                child: const Text("Send Verification"),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      if (proceed != true) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
       // Create user in Firebase Authentication
       UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+
+      // Send email verification
+      await userCredential.user!.sendEmailVerification();
 
       // Generate custom document ID
       String documentId = "station_owner_${DateTime.now().millisecondsSinceEpoch}";
@@ -153,35 +234,91 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
         'districtName': districtName,
       });
 
-      // Show success dialog with improved UI
+      // Show email verification dialog
       showDialog(
         context: context,
-        barrierDismissible: false, // Prevent dismissing the dialog
+        barrierDismissible: false,
         builder: (context) => WillPopScope(
-          onWillPop: () async => false, // Disable back button
-          child: AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.check_circle, color: Colors.green, size: 60), // Success icon
-                SizedBox(height: 20),
-                Text(
-                  "Registration Successful!",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
+          onWillPop: () async => false,
+          child: StatefulBuilder(
+            builder: (context, setStateDialog) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              backgroundColor: Colors.white,
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    padding: const EdgeInsets.all(18),
+                    child: const Icon(Icons.email_outlined, color: Colors.blue, size: 70),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    "Verify Your Email",
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    "A verification link has been sent to your email address. Please check your inbox and verify your email before logging in.",
+                    style: TextStyle(fontSize: 16, color: Colors.black87),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Didn't receive the email? Check your spam folder.",
+                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+              actionsAlignment: MainAxisAlignment.center,
+              actions: [
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      await _auth.currentUser?.reload();
+                      final isVerified = _auth.currentUser?.emailVerified ?? false;
+                      if (isVerified) {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(builder: (context) => LoginScreen()),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Please verify your email before proceeding to login."),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text(
+                      "Go to Login",
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
         ),
       );
+      // Do not navigate to login automatically; wait for user to verify email and press OK
 
-      // Navigate to Login Screen
-      await Future.delayed(const Duration(seconds: 2));
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => LoginScreen()),
-      );
     } catch (e) {
       _showMessage("Registration failed: ${e.toString()}");
     } finally {

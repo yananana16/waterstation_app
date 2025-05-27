@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'registration/customer_registration_screen.dart';
-import 'registration/station_owner_registration_screen.dart';
 import 'registration/membership_confirmation_screen.dart';
 import 'login_screen.dart';
 

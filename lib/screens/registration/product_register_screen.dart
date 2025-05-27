@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:Hydrify/screens/login_screen.dart';
 import 'package:Hydrify/screens/station/submit_compliance_screen.dart';
 
 class ProductRegisterScreen extends StatefulWidget {
@@ -45,8 +44,6 @@ class _ProductRegisterScreenState extends State<ProductRegisterScreen> {
       if (user == null) {
         throw Exception('User not logged in');
       }
-
-      String uid = user.uid;
 
       // Add product data to the "products" subcollection of the registered owner's document
       await _firestore

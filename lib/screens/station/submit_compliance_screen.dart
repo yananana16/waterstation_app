@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/gestures.dart'; // Import the home screen
 import 'displayingStatus.dart'; // Import DisplayStatusScreen
+import '../login_screen.dart'; // <-- Add this import (adjust path as needed)
 
 class SubmitCompliancePage extends StatefulWidget {
   const SubmitCompliancePage({super.key});
@@ -132,6 +133,15 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
       return;
     }
 
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
     Map<String, String> newUploadedUrls = {};
     Map<String, String> statusFields = {};
 
@@ -148,12 +158,6 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
     // Add submission_date to the uploaded document
     newUploadedUrls['submission_date'] = DateTime.now().toIso8601String();
 
-    // If new member, add blank certificate_of_association and its status
-    if (membershipType == 'new') {
-      newUploadedUrls['certificate_of_association'] = '';
-      statusFields['certificate_of_association_status'] = '';
-    }
-
     // Merge file URLs and status fields
     final uploadData = {...newUploadedUrls, ...statusFields};
 
@@ -169,14 +173,13 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
       stationStatus = 'pending_approval'; // Update local status
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('All files uploaded successfully! Status updated to Pending Approval.')),
-    );
-
     // Immediately update status to pending_approval after successful upload
     await firestore.collection('station_owners').doc(stationOwnerDocID).update({'status': 'pending_approval'});
 
-    // Navigate to DisplayStatusScreen after upload
+    // Hide loading dialog
+    Navigator.of(context, rootNavigator: true).pop();
+
+    // Directly navigate to DisplayStatusScreen (no success dialog)
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const DisplayStatusScreen()),
@@ -318,6 +321,17 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.blue[900]),
+          onPressed: () async {
+            await Future.delayed(const Duration(milliseconds: 1500));
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => LoginScreen()),
+              (route) => false,
+            );
+          },
+        ),
         title: Text(
           'Submit Compliance',
           style: TextStyle(
