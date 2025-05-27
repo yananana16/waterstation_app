@@ -15,7 +15,7 @@ class SubmitCompliancePage extends StatefulWidget {
 }
 
 class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
-  final SupabaseClient supabase = Supabase.instance.client;
+  final SupabaseClient supabase = Supabase.instance.client; // Supabase connection
   final FirebaseAuth auth = FirebaseAuth.instance;
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
@@ -85,6 +85,16 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
     FilePickerResult? result = await FilePicker.platform.pickFiles(withData: true);
 
     if (result != null && result.files.single.bytes != null) {
+      String fileName = result.files.single.name.toLowerCase();
+      // Allowed extensions
+      final allowedExtensions = ['pdf', 'jpeg', 'jpg', 'png', 'doc', 'docx'];
+      String fileExtension = fileName.split('.').last;
+      if (!allowedExtensions.contains(fileExtension)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Only PDF, JPEG, PNG, JPG, and Word files are allowed.')),
+        );
+        return;
+      }
       setState(() {
         selectedFiles[category] = result.files.single.bytes;
         selectedFileNames[category] = result.files.single.name;
@@ -123,11 +133,13 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
     }
 
     Map<String, String> newUploadedUrls = {};
+    Map<String, String> statusFields = {};
 
     List<Future<void>> uploadTasks = selectedFiles.keys.map((category) async {
       String? fileUrl = await uploadFile(category);
       if (fileUrl != null) {
         newUploadedUrls[category] = fileUrl;
+        statusFields['${category}_status'] = 'pending'; // Insert status for each file/category
       }
     }).toList();
 
@@ -136,8 +148,17 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
     // Add submission_date to the uploaded document
     newUploadedUrls['submission_date'] = DateTime.now().toIso8601String();
 
+    // If new member, add blank certificate_of_association and its status
+    if (membershipType == 'new') {
+      newUploadedUrls['certificate_of_association'] = '';
+      statusFields['certificate_of_association_status'] = '';
+    }
+
+    // Merge file URLs and status fields
+    final uploadData = {...newUploadedUrls, ...statusFields};
+
     await firestore.collection('compliance_uploads').doc(stationOwnerDocID).set(
-      newUploadedUrls,
+      uploadData,
       SetOptions(merge: true),
     );
 
@@ -145,14 +166,22 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
       uploadedUrls.addAll(newUploadedUrls);
       selectedFiles.clear();
       selectedFileNames.clear();
+      stationStatus = 'pending_approval'; // Update local status
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('All files uploaded successfully!')),
+      SnackBar(content: Text('All files uploaded successfully! Status updated to Pending Approval.')),
     );
 
     // Immediately update status to pending_approval after successful upload
-    await checkAndUpdateApprovalStatus();
+    await firestore.collection('station_owners').doc(stationOwnerDocID).update({'status': 'pending_approval'});
+
+    // Navigate to DisplayStatusScreen after upload
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const DisplayStatusScreen()),
+      (route) => false,
+    );
   }
 
   Future<String?> uploadFile(String category) async {

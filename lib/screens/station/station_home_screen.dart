@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:supabase/supabase.dart'; // Add this import for Supabase storage
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -291,209 +290,249 @@ class HomeScreen extends StatelessWidget {
 }
 
 class ComplianceScreen extends StatefulWidget {
-  ComplianceScreen({super.key});
+  const ComplianceScreen({super.key});
 
   @override
   State<ComplianceScreen> createState() => _ComplianceScreenState();
 }
 
 class _ComplianceScreenState extends State<ComplianceScreen> {
-  final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  Map<String, dynamic>? _complianceData;
-  bool _loading = true;
-  String? _selectedFileUrl;
+  String? stationOwnerId;
+  List<FileObject> uploadedFiles = [];
+  bool isLoading = true;
+
+  // Track which files are expanded (viewed)
+  final Set<int> _expandedIndexes = {};
 
   @override
   void initState() {
     super.initState();
-    _fetchComplianceData();
+    fetchStationOwnerDocId();
   }
 
-  Future<void> _fetchComplianceData() async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      setState(() {
-        _complianceData = null;
-        _loading = false;
-      });
-      return;
-    }
+  Future<void> fetchStationOwnerDocId() async {
     try {
-      // Find the station_owner document where userId == user.uid
-      final query = await _firestore
+      final user = firebase_auth.FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final snapshot = await FirebaseFirestore.instance
           .collection('station_owners')
           .where('userId', isEqualTo: user.uid)
           .limit(1)
           .get();
-      if (query.docs.isEmpty) {
+
+      if (snapshot.docs.isNotEmpty) {
+        final docId = snapshot.docs.first.id;
         setState(() {
-          _complianceData = null;
-          _loading = false;
+          stationOwnerId = docId;
         });
-        return;
+
+        await fetchComplianceFiles(docId);
+      } else {
+        setState(() {
+          isLoading = false;
+        });
+        print('No station owner document found for user.');
       }
-      final stationOwnerDocId = query.docs.first.id;
-      final doc = await _firestore
-          .collection('compliance_uploads')
-          .doc(stationOwnerDocId)
-          .get();
-      setState(() {
-        _complianceData = doc.exists ? doc.data() : null;
-        _loading = false;
-      });
     } catch (e) {
       setState(() {
-        _complianceData = null;
-        _loading = false;
+        isLoading = false;
       });
+      print('Error fetching station owner ID: $e');
     }
   }
 
-  // Helper to extract file name from URL
-  String _extractFileName(String url) {
+  Future<void> fetchComplianceFiles(String docId) async {
     try {
-      Uri uri = Uri.parse(url);
-      return uri.pathSegments.isNotEmpty ? uri.pathSegments.last : url;
-    } catch (_) {
-      return url;
+      final response = await Supabase.instance.client.storage
+          .from('compliance_docs')
+          .list(path: 'uploads/$docId');
+
+      setState(() {
+        uploadedFiles = response;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      print('Error fetching files from Supabase: $e');
     }
+  }
+
+  String _extractCategoryLabel(String fileName, String docId) {
+    // Example: abc123_business_permit.pdf -> business_permit
+    final prefix = '${docId}_';
+    if (fileName.startsWith(prefix)) {
+      final rest = fileName.substring(prefix.length);
+      final category = rest.split('.').first; // remove extension
+      // Convert snake_case to Title Case
+      return category
+          .replaceAll('_', ' ')
+          .split(' ')
+          .map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1)}' : '')
+          .join(' ');
+    }
+    return 'Unknown Category';
+  }
+
+  // Dummy status extraction for demonstration (replace with your logic if you have status in metadata)
+  String _extractStatus(String fileName) {
+    // You can update this logic to extract status from file metadata if available
+    // For now, always return "Passed"
+    return "Passed";
   }
 
   @override
   Widget build(BuildContext context) {
-    final docLabels = {
-      'business_permit': 'Business Permit',
-      'certificate_of_association': 'Certificate of Association',
-      'finished_bacteriological': 'Finished Bacteriological',
-      'finished_physical_chemical': 'Finished Physical/Chemical',
-      'sanitary_permit': 'Sanitary Permit',
-      'source_bacteriological': 'Source Bacteriological',
-      'source_physical_chemical': 'Source Physical/Chemical',
-    };
-
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text(
-          'Compliance',
-          style: TextStyle(color: Colors.blue),
-        ),
+        title: const Text('Compliance', style: TextStyle(color: Colors.blue)),
         backgroundColor: Colors.white,
         iconTheme: const IconThemeData(color: Colors.black),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {},
-          ),
+        actions: const [
+          Icon(Icons.notifications),
+          Icon(Icons.settings),
+          Icon(Icons.person),
         ],
       ),
-      body: _loading
+      body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _complianceData == null
-              ? const Center(child: Text('No compliance documents uploaded.'))
-              : Column(
-                  children: [
-                    Expanded(
-                      child: ListView(
-                        padding: const EdgeInsets.all(16.0),
-                        children: [
-                          const Text(
-                            'Compliance Documents',
-                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          : stationOwnerId == null
+              ? const Center(child: Text('No station owner record found.'))
+              : uploadedFiles.isEmpty
+                  ? const Center(child: Text('No uploaded compliance files found.'))
+                  : ListView.builder(
+                      itemCount: uploadedFiles.length,
+                      itemBuilder: (context, index) {
+                        final file = uploadedFiles[index];
+                        final fileUrl = Supabase.instance.client.storage
+                            .from('compliance_docs')
+                            .getPublicUrl('uploads/$stationOwnerId/${file.name}');
+
+                        final extension = file.name.split('.').last.toLowerCase();
+                        final isImage = ['png', 'jpg', 'jpeg'].contains(extension);
+                        final isPdf = extension == 'pdf';
+                        final isWord = extension == 'doc' || extension == 'docx';
+
+                        final categoryLabel = _extractCategoryLabel(file.name, stationOwnerId!);
+                        final status = _extractStatus(file.name);
+
+                        return Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(16),
                           ),
-                          const SizedBox(height: 16),
-                          ...docLabels.entries.map((entry) {
-                            final url = _complianceData![entry.key];
-                            if (url == null || url.isEmpty) return const SizedBox.shrink();
-                            final fileName = _extractFileName(url);
-                            return Card(
-                              child: ListTile(
-                                title: Text(entry.value),
-                                subtitle: Text(fileName, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.open_in_new, color: Colors.blue),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  categoryLabel,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  file.name,
+                                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    const Text(
+                                      "Status: ",
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                    Text(
+                                      status,
+                                      style: const TextStyle(
+                                        color: Colors.green,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                ElevatedButton(
                                   onPressed: () {
                                     setState(() {
-                                      _selectedFileUrl = url;
+                                      if (_expandedIndexes.contains(index)) {
+                                        _expandedIndexes.remove(index);
+                                      } else {
+                                        _expandedIndexes.add(index);
+                                      }
                                     });
                                   },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: Colors.blue,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      side: const BorderSide(color: Colors.blue),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    _expandedIndexes.contains(index) ? 'Hide File' : 'View File',
+                                    style: const TextStyle(color: Colors.blue),
+                                  ),
                                 ),
-                              ),
-                            );
-                          }).toList(),
-                        ],
-                      ),
+                                if (_expandedIndexes.contains(index)) ...[
+                                  const SizedBox(height: 8),
+                                  if (isImage)
+                                    Image.network(
+                                      fileUrl,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (context, error, stackTrace) =>
+                                          const Padding(
+                                            padding: EdgeInsets.all(16.0),
+                                            child: Text('Failed to load image'),
+                                          ),
+                                    )
+                                  else if (isPdf || isWord)
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          isPdf ? Icons.picture_as_pdf : Icons.description,
+                                          color: isPdf ? Colors.red : Colors.blue,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          isPdf ? 'PDF Document' : 'Word Document',
+                                          style: const TextStyle(fontSize: 14),
+                                        ),
+                                        const Spacer(),
+                                        IconButton(
+                                          icon: const Icon(Icons.open_in_new, color: Colors.blue),
+                                          onPressed: () async {
+                                            if (await canLaunchUrl(Uri.parse(fileUrl))) {
+                                              await launchUrl(Uri.parse(fileUrl), mode: LaunchMode.externalApplication);
+                                            } else {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('Could not open file')),
+                                              );
+                                            }
+                                          },
+                                        ),
+                                      ],
+                                    )
+                                  else
+                                    const Text('Unsupported file type', style: TextStyle(color: Colors.red)),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                    if (_selectedFileUrl != null)
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        color: Colors.blue.shade50,
-                        width: double.infinity,
-                        child: _buildFilePreview(_selectedFileUrl!),
-                      ),
-                  ],
-                ),
     );
-  }
-
-  Widget _buildFilePreview(String url) {
-    final uri = Uri.parse(url);
-    final isImage = uri.path.endsWith('.png') ||
-        uri.path.endsWith('.jpg') ||
-        uri.path.endsWith('.jpeg');
-    if (isImage) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Preview:', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Image.network(url, height: 300, fit: BoxFit.contain),
-        ],
-      );
-    } else if (uri.path.endsWith('.pdf')) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Preview:', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.picture_as_pdf),
-            label: const Text('Open PDF'),
-            onPressed: () async {
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            },
-          ),
-        ],
-      );
-    } else {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Preview:', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.open_in_new),
-            label: const Text('Open File'),
-            onPressed: () async {
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            },
-          ),
-        ],
-      );
-    }
   }
 }
 

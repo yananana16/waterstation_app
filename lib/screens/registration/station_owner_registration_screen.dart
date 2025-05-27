@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:Hydrify/screens/registration/location_picker_screen.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:Hydrify/screens/registration/product_register_screen.dart';
 import 'package:http/http.dart' as http; // <-- Add this import
 import 'dart:convert'; // <-- Add this import
 
@@ -137,6 +136,7 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
         'stationOwnerDocId': documentId,
         'customUID': documentId, // <-- Add customUID field
         'createdAt': FieldValue.serverTimestamp(),
+        'districtName': districtName,
       });
 
       // Show success dialog with improved UI
@@ -163,27 +163,9 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
         ),
       );
 
-      // Navigate to Product Registration Screen
+      // Navigate to Login Screen
       await Future.delayed(const Duration(seconds: 2));
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ProductRegisterScreen(
-            userDetails: {
-              'stationName': _stationNameController.text.trim(),
-              'lastName': _lastNameController.text.trim(),
-              'firstName': _firstNameController.text.trim(),
-              'middleInitial': _middleIniController.text.trim(),
-              'phone': _phoneController.text.trim(),
-              'email': _emailController.text.trim(),
-              'districtID': _selectedDistrict,
-              'districtName': districtName, // <-- Add districtName here
-              'location': _selectedLocation,
-              'ownerDocId': documentId, // Pass the document ID of the registered owner
-            },
-          ),
-        ),
-      );
+      Navigator.pushReplacementNamed(context, '/login');
     } catch (e) {
       _showMessage("Registration failed: ${e.toString()}");
     } finally {
