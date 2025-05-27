@@ -61,7 +61,7 @@ class _StationHomeScreenState extends State<StationHomeScreen> {
     const HomeScreen(),
     ComplianceScreen(),
     OrdersScreen(),
-    const InventoryScreen(),
+    InventoryScreen(),
     const ProfileScreen(),
   ];
 
@@ -155,7 +155,10 @@ class HomeScreen extends StatelessWidget {
                       IconButton(
                         icon: const Icon(Icons.person, color: Colors.blue),
                         onPressed: () {
-                          // Add user profile functionality
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                          );
                         },
                       ),
                     ],
@@ -390,10 +393,28 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
         title: const Text('Compliance', style: TextStyle(color: Colors.blue)),
         backgroundColor: Colors.white,
         iconTheme: const IconThemeData(color: Colors.black),
-        actions: const [
-          Icon(Icons.notifications),
-          Icon(Icons.settings),
-          Icon(Icons.person),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications, color: Colors.blue),
+            onPressed: () {
+              // Add notification functionality
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.blue),
+            onPressed: () {
+              // Add settings functionality
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.person, color: Colors.blue),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              );
+            },
+          ),
         ],
       ),
       body: isLoading
@@ -642,7 +663,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
       return;
     }
     try {
-      // Find the station_owner document where userId == user.uid
       final query = await _firestore
           .collection('station_owners')
           .where('userId', isEqualTo: user.uid)
@@ -677,39 +697,241 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
   }
 
+  Widget _buildTopBar(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 32, left: 16, right: 16, bottom: 0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            'Order and Delivery',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue,
+            ),
+          ),
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications, color: Colors.blue),
+                onPressed: () {},
+              ),
+              IconButton(
+                icon: const Icon(Icons.settings, color: Colors.blue),
+                onPressed: () {},
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateRow() {
+    final now = DateTime.now();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            DateFormat('EEEE, d MMMM yyyy').format(now),
+            style: const TextStyle(fontSize: 14, color: Colors.blue),
+          ),
+          Text(
+            DateFormat('hh:mm a').format(now) + " PST",
+            style: const TextStyle(fontSize: 14, color: Colors.blue),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String label, String value) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        child: Column(
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 14, color: Colors.blue, fontWeight: FontWeight.w500),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blue),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNumberOfOrdersTodayCard(String value) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 0),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      child: Column(
+        children: [
+          const Text(
+            "Number of Orders Today:",
+            style: TextStyle(fontSize: 14, color: Colors.blue, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blue),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToOrdersList() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => OrdersListScreen(orders: _orders, loading: _loading)),
+    );
+  }
+
+  void _navigateToAddOrder() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => AddOrderScreen(onOrderAdded: () async {
+        await _fetchOrders();
+      })),
+    );
+  }
+
+  void _navigateToDeliveries() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const DeliveriesScreen()),
+    );
+  }
+
+  Widget _buildCircleButton(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.blue,
+              shape: BoxShape.circle,
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Icon(icon, color: Colors.white, size: 28),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.blue,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainContent() {
+    final pendingOrders = _orders.where((o) => o['status'] == 'Pending').length.toString();
+    final readyForDelivery = _orders.where((o) => o['status'] == 'Ready for Delivery').length.toString();
+    final ordersToday = _orders.length.toString();
+
+    return Column(
+      children: [
+        Image.asset(
+          'assets/order_delivery_illustration.png',
+          height: 140,
+        ),
+        _buildDateRow(),
+        Row(
+          children: [
+            _buildStatCard('Pending Orders:', pendingOrders),
+            _buildStatCard('Ready for Delivery:', readyForDelivery),
+          ],
+        ),
+        _buildNumberOfOrdersTodayCard(ordersToday),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildCircleButton(Icons.list_alt, "Orders", _navigateToOrdersList),
+            _buildCircleButton(Icons.add_circle, "Add Order", _navigateToAddOrder),
+            _buildCircleButton(Icons.local_shipping, "Deliveries", _navigateToDeliveries),
+          ],
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildTopBar(context),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: _buildMainContent(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- New Screens ---
+
+class OrdersListScreen extends StatelessWidget {
+  final List<Map<String, dynamic>> orders;
+  final bool loading;
+  const OrdersListScreen({super.key, required this.orders, required this.loading});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Orders',
-          style: TextStyle(color: Colors.blue),
-        ),
+        title: const Text('Orders', style: TextStyle(color: Colors.blue)),
         backgroundColor: Colors.white,
         iconTheme: const IconThemeData(color: Colors.black),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-              // Add notification functionality
-            },
-          ),
-        ],
       ),
-      body: _loading
+      body: loading
           ? const Center(child: CircularProgressIndicator())
-          : _orders.isEmpty
+          : orders.isEmpty
               ? const Center(child: Text('No orders found.'))
               : ListView.builder(
-                  itemCount: _orders.length,
+                  itemCount: orders.length,
                   itemBuilder: (context, index) {
-                    final order = _orders[index];
+                    final order = orders[index];
                     return Card(
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                       child: ListTile(
-                        title: Text('Order ID: ${order['orderId']}'),
-                        subtitle: Text('Status: ${order['status']}'),
+                        title: Text('Order ID: ${order['orderId'] ?? order['id']}'),
+                        subtitle: Text('Status: ${order['status'] ?? "Unknown"}'),
                         trailing: ElevatedButton(
                           onPressed: () {
                             // Add functionality for viewing order details
@@ -728,797 +950,201 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 }
 
-class InventoryScreen extends StatefulWidget {
+class AddOrderScreen extends StatefulWidget {
+  final Future<void> Function() onOrderAdded;
+  const AddOrderScreen({super.key, required this.onOrderAdded});
+
+  @override
+  State<AddOrderScreen> createState() => _AddOrderScreenState();
+}
+
+class _AddOrderScreenState extends State<AddOrderScreen> {
+  final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final TextEditingController _customerNameController = TextEditingController();
+  final TextEditingController _productController = TextEditingController();
+  final TextEditingController _quantityController = TextEditingController();
+  final TextEditingController _amountController = TextEditingController();
+  bool _isSubmitting = false;
+
+  Future<void> _submitOrder() async {
+    final customer = _customerNameController.text.trim();
+    final product = _productController.text.trim();
+    final quantity = int.tryParse(_quantityController.text.trim()) ?? 0;
+    final amount = double.tryParse(_amountController.text.trim()) ?? 0.0;
+    if (product.isEmpty || quantity <= 0 || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all required fields.')),
+      );
+      return;
+    }
+    setState(() {
+      _isSubmitting = true;
+    });
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        final query = await _firestore
+            .collection('station_owners')
+            .where('userId', isEqualTo: user.uid)
+            .limit(1)
+            .get();
+        if (query.docs.isNotEmpty) {
+          final stationOwnerDocId = query.docs.first.id;
+          await _firestore
+              .collection('station_owners')
+              .doc(stationOwnerDocId)
+              .collection('orders')
+              .add({
+            'customer': customer,
+            'product': product,
+            'quantity': quantity,
+            'amount': amount,
+            'status': 'Pending',
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+          _customerNameController.clear();
+          _productController.clear();
+          _quantityController.clear();
+          _amountController.clear();
+          await widget.onOrderAdded();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Order added!')),
+          );
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+    setState(() {
+      _isSubmitting = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Add Order', style: TextStyle(color: Colors.blue)),
+        backgroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.black),
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Walk-in Order",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _customerNameController,
+                decoration: const InputDecoration(
+                  labelText: "Customer Name (optional)",
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _productController,
+                decoration: const InputDecoration(
+                  labelText: "Product",
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.local_drink),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _quantityController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Quantity",
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.confirmation_number),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _amountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Amount (₱)",
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.attach_money),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.add_shopping_cart),
+                  label: _isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text("Add Order"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: _isSubmitting ? null : _submitOrder,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class DeliveriesScreen extends StatelessWidget {
+  const DeliveriesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Deliveries', style: TextStyle(color: Colors.blue)),
+        backgroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.black),
+      ),
+      body: const Center(
+        child: Text(
+          'Deliveries (Coming Soon)',
+          style: TextStyle(color: Colors.blue, fontSize: 18),
+        ),
+      ),
+    );
+  }
+}
+
+class InventoryScreen extends StatelessWidget {
   const InventoryScreen({super.key});
 
   @override
-  State<InventoryScreen> createState() => _InventoryScreenState();
-}
-
-class _InventoryScreenState extends State<InventoryScreen> {
-  // Example product list (replace with Firestore integration as needed)
-  List<Map<String, dynamic>> _products = [
-    {'name': 'Purified Water', 'price': 25, 'type': 'Bottled'},
-    {'name': 'Mineral Water', 'price': 30, 'type': 'Bottled'},
-  ];
-
-  void _navigateToProductInventory(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => ProductInventoryScreen()),
-    );
-  }
-
-  void _showSalesScreen(BuildContext context) {
-    String selectedMonth = 'Any';
-    String selectedYear = 'Any';
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Scaffold(
-          appBar: AppBar(
-            automaticallyImplyLeading: true,
-            title: const Text(
-              'Sales',
-              style: TextStyle(color: Colors.blue),
-            ),
-            backgroundColor: Colors.white,
-            iconTheme: const IconThemeData(color: Colors.black),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.notifications),
-                onPressed: () {
-                  // Add notification functionality
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.settings),
-                onPressed: () {
-                  // Add settings functionality
-                },
-              ),
-            ],
-          ),
-          body: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    DropdownButton<String>(
-                      value: selectedMonth,
-                      items: ['Any', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-                          .map((month) => DropdownMenuItem(value: month, child: Text(month)))
-                          .toList(),
-                      onChanged: (value) {
-                        selectedMonth = value!;
-                      },
-                    ),
-                    DropdownButton<String>(
-                      value: selectedYear,
-                      items: ['Any', '2023', '2024', '2025', '2026', '2027']
-                          .map((year) => DropdownMenuItem(value: year, child: Text(year)))
-                          .toList(),
-                      onChanged: (value) {
-                        selectedYear = value!;
-                      },
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        selectedMonth = 'Any';
-                        selectedYear = 'Any';
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      child: const Text('Apply', style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  color: Colors.blue.shade50, // Match _buildSalesCard background color
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: const [
-                        Text(
-                          'Daily Sales',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'P 9540',
-                          style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blue),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildSalesCard('Returned Containers', '55'),
-                    _buildSalesCard('Number of Orders', '318'),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Expanded(
-                  child: ListView(
-                    children: List.generate(4, (index) {
-                      return Card(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        color: Colors.blue.shade50, // Match _buildSalesCard background color
-                        child: ListTile(
-                          title: Text('Order No. 0${60 + index}'),
-                          subtitle: Text('Quantity: ${[20, 5, 10, 20][index]}'),
-                          trailing: ElevatedButton(
-                            onPressed: () {
-                              // Add view functionality
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            child: const Text('View'),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSalesCard(String title, String value) {
-    return Expanded(
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: Colors.blue.shade50, // Updated background color
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              Text(title, style: const TextStyle(fontSize: 14, color: Colors.grey)), // Reduced font size
-              const SizedBox(height: 8),
-              Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue)), // Reduced font size
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInventoryCard(String title, String value, {bool isFullWidth = false}) {
-    return Expanded(
-      flex: isFullWidth ? 2 : 1,
-      child: Card(
-        color: Colors.blue.shade50, // Match card box background
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              Text(title, style: const TextStyle(fontSize: 16, color: Colors.grey)), // Reduced font size
-              const SizedBox(height: 8),
-              Text(value, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold, color: Colors.blue)), // Reduced font size
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton(IconData icon, String label, VoidCallback onPressed) {
-    return Column(
-      children: [
-        ElevatedButton(
-          onPressed: onPressed,
-          style: ElevatedButton.styleFrom(
-            shape: const CircleBorder(),
-            padding: const EdgeInsets.all(12), // Reduced padding for closer icons
-            backgroundColor: Colors.blue.shade50,
-          ),
-          child: Icon(icon, size: 28, color: Colors.blue), // Adjusted icon size
-        ),
-        const SizedBox(height: 6), // Reduced spacing
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.blue)), // Adjusted font size
-      ],
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false, // Remove the back button
-        title: const Text(
-          'Sales and Inventory',
-          style: TextStyle(fontSize: 18, color: Colors.blue), // Adjusted font size
-        ),
-        backgroundColor: Colors.white, // Set app bar background to white
-        iconTheme: const IconThemeData(color: Colors.black), // Set icon color to black
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-              // Add notification functionality
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              // Add settings functionality
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              // Add user profile functionality
-            },
-          ),
-        ],
-      ),
-      body: Container(
-        color: Colors.white, // Set the entire page background to white
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              Image.asset(
-                'assets/Sales and Inventory.png',
-                height: 150, // Adjust height as needed
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    DateFormat('EEEE, d MMMM yyyy').format(DateTime.now()),
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  Text(
-                    DateFormat('hh:mm a').format(DateTime.now()),
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildInventoryCard('Returned Containers', '35'),
-                  _buildInventoryCard('Number of Orders', '110'),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _buildInventoryCard('Current Number of Containers', '685', isFullWidth: true),
-              const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Column(
-                    children: [
-                      ElevatedButton(
-                        onPressed: () => _showSalesScreen(context),
-                        style: ElevatedButton.styleFrom(
-                          shape: const CircleBorder(),
-                          padding: const EdgeInsets.all(12), // Reduced padding for closer icons
-                          backgroundColor: Colors.blue.shade50, // Match card box background
-                        ),
-                        child: const Icon(Icons.bar_chart, size: 28, color: Colors.blue), // Adjusted icon size
-                      ),
-                      const SizedBox(height: 6), // Reduced spacing
-                      const Text('Sales', style: TextStyle(fontSize: 12, color: Colors.blue)), // Adjusted font size
-                    ],
-                  ),
-                  _buildActionButton(Icons.inventory, 'Inventory', () => _navigateToProductInventory(context)),
-                  _buildActionButton(Icons.report, 'Report', () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const ReportScreen()),
-                    );
-                  }),
-                  _buildActionButton(Icons.people, 'Staffs', () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const StaffsScreen()),
-                    );
-                  }),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class ProductInventoryScreen extends StatefulWidget {
-  @override
-  State<ProductInventoryScreen> createState() => _ProductInventoryScreenState();
-}
-
-class _ProductInventoryScreenState extends State<ProductInventoryScreen> {
-  final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  List<Map<String, dynamic>> _products = [];
-  bool _loading = true;
-  String? _stationOwnerDocId;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchStationOwnerDocIdAndProducts();
-  }
-
-  Future<void> _fetchStationOwnerDocIdAndProducts() async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      setState(() {
-        _products = [];
-        _loading = false;
-      });
-      return;
-    }
-    try {
-      // Find the station_owner document where userId == user.uid
-      final query = await _firestore
-          .collection('station_owners')
-          .where('userId', isEqualTo: user.uid)
-          .limit(1)
-          .get();
-      if (query.docs.isEmpty) {
-        setState(() {
-          _products = [];
-          _loading = false;
-        });
-        return;
-      }
-      final docId = query.docs.first.id;
-      _stationOwnerDocId = docId;
-      await _fetchProducts();
-    } catch (e) {
-      setState(() {
-        _products = [];
-        _loading = false;
-      });
-    }
-  }
-
-  Future<void> _fetchProducts() async {
-    if (_stationOwnerDocId == null) {
-      setState(() {
-        _products = [];
-        _loading = false;
-      });
-      return;
-    }
-    try {
-      final snapshot = await _firestore
-          .collection('station_owners')
-          .doc(_stationOwnerDocId)
-          .collection('products')
-          .get();
-      setState(() {
-        _products = snapshot.docs.map((doc) {
-          final data = doc.data();
-          data['id'] = doc.id;
-          return data;
-        }).toList();
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _products = [];
-        _loading = false;
-      });
-    }
-  }
-
-  Future<void> _addProduct(Map<String, dynamic> product) async {
-    final user = _auth.currentUser;
-    if (user == null || _stationOwnerDocId == null) return;
-    await _firestore
-        .collection('station_owners')
-        .doc(_stationOwnerDocId)
-        .collection('products')
-        .add(product);
-    await _fetchProducts();
-  }
-
-  Future<void> _updateProduct(String docId, Map<String, dynamic> product) async {
-    final user = _auth.currentUser;
-    if (user == null || _stationOwnerDocId == null) return;
-    await _firestore
-        .collection('station_owners')
-        .doc(_stationOwnerDocId)
-        .collection('products')
-        .doc(docId)
-        .set(product);
-    await _fetchProducts();
-  }
-
-  void _showAddProductDialog() {
-    final _nameController = TextEditingController();
-    final _priceController = TextEditingController();
-    final _typeController = TextEditingController();
-    final _stockController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Product'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Product Name'),
-            ),
-            TextField(
-              controller: _priceController,
-              decoration: const InputDecoration(labelText: 'Price'),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: _typeController,
-              decoration: const InputDecoration(labelText: 'Type'),
-            ),
-            TextField(
-              controller: _stockController,
-              decoration: const InputDecoration(labelText: 'Stock'),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final product = {
-                'name': _nameController.text,
-                'price': int.tryParse(_priceController.text) ?? 0,
-                'type': _typeController.text,
-                'stock': int.tryParse(_stockController.text) ?? 0,
-              };
-              await _addProduct(product);
-              Navigator.pop(context);
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEditProductDialog(int index) {
-    final product = _products[index];
-    final _nameController = TextEditingController(text: product['name']);
-    final _priceController = TextEditingController(text: product['price'].toString());
-    final _typeController = TextEditingController(text: product['type']);
-    final _stockController = TextEditingController(text: product['stock'].toString());
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Customize Product'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Product Name'),
-            ),
-            TextField(
-              controller: _priceController,
-              decoration: const InputDecoration(labelText: 'Price'),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: _typeController,
-              decoration: const InputDecoration(labelText: 'Type'),
-            ),
-            TextField(
-              controller: _stockController,
-              decoration: const InputDecoration(labelText: 'Stock'),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final updatedProduct = {
-                'name': _nameController.text,
-                'price': int.tryParse(_priceController.text) ?? 0,
-                'type': _typeController.text,
-                'stock': int.tryParse(_stockController.text) ?? 0,
-              };
-              await _updateProduct(product['id'], updatedProduct);
-              Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Product Inventory', style: TextStyle(color: Colors.blue)),
+        title: const Text('Inventory', style: TextStyle(color: Colors.blue)),
         backgroundColor: Colors.white,
         iconTheme: const IconThemeData(color: Colors.black),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add, color: Colors.blue),
-            onPressed: _showAddProductDialog,
-            tooltip: 'Add Product',
-          ),
-        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _products.isEmpty
-                ? const Center(child: Text('No products yet.'))
-                : ListView.builder(
-                    itemCount: _products.length,
-                    itemBuilder: (context, index) {
-                      final product = _products[index];
-                      final name = product['name']?.toString() ?? '';
-                      final type = product['type']?.toString() ?? '';
-                      final price = product['price'] != null ? product['price'].toString() : '0';
-                      final stock = product['stock'] != null ? product['stock'].toString() : '0';
-                      return Card(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        color: Colors.blue.shade50,
-                        child: ListTile(
-                          title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('Type: $type  |  Price: ₱$price  |  Stock: $stock'),
-                          trailing: TextButton(
-                            onPressed: () => _showEditProductDialog(index),
-                            child: const Text('Customize'),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-      ),
-    );
-  }
-}
-
-class ReportScreen extends StatelessWidget {
-  const ReportScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Report', style: TextStyle(color: Colors.blue)),
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-              // Add notification functionality
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              // Add settings functionality
-            },
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                DropdownButton<String>(
-                  value: 'February',
-                  items: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-                      .map((month) => DropdownMenuItem(value: month, child: Text(month)))
-                      .toList(),
-                  onChanged: (value) {
-                    // Handle month selection
-                  },
-                ),
-                DropdownButton<String>(
-                  value: '2025',
-                  items: ['2023', '2024', '2025', '2026', '2027']
-                      .map((year) => DropdownMenuItem(value: year, child: Text(year)))
-                      .toList(),
-                  onChanged: (value) {
-                    // Handle year selection
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () {
-                    // Handle Save as PDF
-                  },
-                  icon: const Icon(Icons.picture_as_pdf, color: Colors.blue),
-                  label: const Text('Save as PDF', style: TextStyle(color: Colors.blue)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.blue),
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    // Handle Save as Excel
-                  },
-                  icon: const Icon(Icons.grid_on, color: Colors.blue),
-                  label: const Text('Save as Excel', style: TextStyle(color: Colors.blue)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.blue),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'Quench-O Purified Drinking Water',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const Text(
-                        '42-A Gustilo St., La Paz, Iloilo City',
-                        style: TextStyle(fontSize: 14, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Sales Report',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      const Text(
-                        'As of February 2025',
-                        style: TextStyle(fontSize: 14, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 20),
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: 5, // Placeholder for report rows
-                          itemBuilder: (context, index) {
-                            return Container(
-                              margin: const EdgeInsets.symmetric(vertical: 4.0),
-                              height: 40,
-                              color: Colors.grey.shade300,
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
+      body: const Center(
+        child: Text(
+          'Inventory (Coming Soon)',
+          style: TextStyle(color: Colors.blue, fontSize: 18),
         ),
       ),
-    );
-  }
-}
-
-class StaffsScreen extends StatelessWidget {
-  const StaffsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Staffs', style: TextStyle(color: Colors.blue)),
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.black), // Set icon color to black
-      ),
-      body: Column(
-        children: [
-          Container(
-            color: Colors.blue.shade50,
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  DateFormat('EEEE, d MMMM yyyy').format(DateTime.now()),
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-                Text(
-                  DateFormat('hh:mm a').format(DateTime.now()),
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              children: [
-                _buildStaffSection('Refilling Technician', 3),
-                _buildStaffSection('Cashier', 1),
-                _buildStaffSection('Delivery Personnel', 3),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStaffSection(String title, int count) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: double.infinity, // Stretch the background to full width
-          color: Colors.blue.shade700,
-          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-          child: Text(
-            title,
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-        ),
-        Column(
-          children: List.generate(count, (index) {
-            return Container(
-              width: double.infinity, // Stretch the background to full width
-              color: Colors.blue.shade50,
-              margin: const EdgeInsets.symmetric(vertical: 4.0),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.blue.shade100,
-                  child: const Icon(Icons.person, color: Colors.blue),
-                ),
-                title: const Text(
-                  '',
-                  style: TextStyle(fontSize: 14, color: Colors.black),
-                ),
-              ),
-            );
-          }),
-        ),
-      ],
     );
   }
 }

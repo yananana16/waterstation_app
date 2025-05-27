@@ -5,6 +5,7 @@ import 'package:Hydrify/screens/registration/location_picker_screen.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http; // <-- Add this import
 import 'dart:convert'; // <-- Add this import
+import 'package:Hydrify/screens/login_screen.dart'; // <-- Import LoginScreen
 
 class StationOwnerRegistrationScreen extends StatefulWidget {
   const StationOwnerRegistrationScreen({super.key});
@@ -65,6 +66,19 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
 
   // Function to handle registration
   void _registerStationOwner() async {
+    // Ensure phone number starts with +63
+    String phone = _phoneController.text.trim();
+    if (!phone.startsWith('+63')) {
+      if (phone.startsWith('0')) {
+        phone = '+63' + phone.substring(1);
+      } else if (phone.startsWith('63')) {
+        phone = '+$phone';
+      } else {
+        phone = '+63$phone';
+      }
+    }
+    _phoneController.text = phone;
+
     if (_stationNameController.text.isEmpty ||
         _lastNameController.text.isEmpty ||
         _firstNameController.text.isEmpty ||
@@ -112,7 +126,7 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
         'lastName': _lastNameController.text.trim(),
         'firstName': _firstNameController.text.trim(),
         'middleInitial': _middleIniController.text.trim(),
-        'phone': _phoneController.text.trim(),
+        'phone': phone, // <-- Use formatted phone number
         'email': _emailController.text.trim(),
         'districtID': _selectedDistrict,
         'districtName': districtName, // <-- Add districtName here
@@ -165,7 +179,9 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
 
       // Navigate to Login Screen
       await Future.delayed(const Duration(seconds: 2));
-      Navigator.pushReplacementNamed(context, '/login');
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => LoginScreen()),
+      );
     } catch (e) {
       _showMessage("Registration failed: ${e.toString()}");
     } finally {
@@ -311,8 +327,20 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
                   },
                 )
               : null,
+          prefixText: label == 'Phone Number' ? '+63 ' : null, // Show +63 as prefix in UI
         ),
         style: const TextStyle(color: Colors.black), // Black text inside input fields
+        onChanged: (value) {
+          if (label == 'Phone Number') {
+            // Remove any leading zero if user types it after +63
+            if (value.startsWith('0')) {
+              controller.text = value.replaceFirst('0', '');
+              controller.selection = TextSelection.fromPosition(
+                TextPosition(offset: controller.text.length),
+              );
+            }
+          }
+        },
       ),
     );
   }

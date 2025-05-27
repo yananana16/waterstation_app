@@ -877,7 +877,8 @@ class _StationDetailsScreenState extends State<StationDetailsScreen> {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
                       }
-                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      // Check if products collection exists or has data
+                      if (!snapshot.hasData || snapshot.data == null || snapshot.data!.docs.isEmpty) {
                         return const Center(
                           child: Padding(
                             padding: EdgeInsets.symmetric(vertical: 20),
@@ -887,12 +888,26 @@ class _StationDetailsScreenState extends State<StationDetailsScreen> {
                       }
 
                       final products = snapshot.data!.docs;
+                      // Filter out products without productOffer key
+                      final validProducts = products.where((product) {
+                        final data = product.data() as Map<String, dynamic>?;
+                        return data != null && data.containsKey('productOffer') && data['productOffer'] != null;
+                      }).toList();
+                      if (validProducts.isEmpty) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 20),
+                            child: Text('No products available.'),
+                          ),
+                        );
+                      }
                       return Column(
-                        children: products.map((product) {
-                          final productOffer = product['productOffer'] ?? 'N/A';
-                          final waterType = product['waterType'] ?? 'N/A';
-                          final gallon = product['gallon'] == true ? 'Yes' : 'No';
-                          final delivery = product['deliveryAvailable'] ?? 'No';
+                        children: validProducts.map((product) {
+                          final data = product.data() as Map<String, dynamic>;
+                          final productOffer = data['productOffer'] ?? 'N/A';
+                          final waterType = data['waterType'] ?? 'N/A';
+                          final gallon = data['gallon'] == true ? 'Yes' : 'No';
+                          final delivery = data['deliveryAvailable'] ?? 'No';
 
                           return Card(
                             elevation: 4,
