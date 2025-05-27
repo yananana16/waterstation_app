@@ -1,8 +1,52 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase/supabase.dart'; // Add this import for Supabase storage
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:Hydrify/screens/login_screen.dart';
+import 'package:url_launcher/url_launcher.dart'; // <-- Add this import
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Supabase.initialize(
+    url: 'https://ygrdgnohxkwbkuftieil.supabase.co', // Updated to match main.dart
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlncmRnbm9oeGt3Ymt1ZnRpZWlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE3NTUyOTgsImV4cCI6MjA1NzMzMTI5OH0.j7jVz-Zx4KcEKxBPHbqRNyMxQmwDsQaEq3xiK4afgxc', // Updated to match main.dart
+  );
+  runApp(const MyApp());
+}
+
+// Example: Supabase storage usage
+final SupabaseClient supabase = Supabase.instance.client;
+
+// Example function to list files from a Supabase storage bucket
+Future<List<FileObject>> listSupabaseFiles(String bucket) async {
+  final response = await supabase.storage.from(bucket).list();
+  if (response.isEmpty) {
+    return [];
+  }
+  return response;
+}
+
+// List files from Supabase storage bucket 'compliance_docs' in 'uploads' folder
+Future<List<FileObject>> listComplianceDocs() async {
+  final response = await supabase.storage.from('compliance_docs').list(path: 'uploads');
+  if (response.isEmpty) {
+    return [];
+  }
+  return response;
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: const StationHomeScreen(),
+    );
+  }
+}
 
 class StationHomeScreen extends StatefulWidget {
   const StationHomeScreen({super.key});
@@ -246,145 +290,210 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class ComplianceScreen extends StatelessWidget {
+class ComplianceScreen extends StatefulWidget {
   ComplianceScreen({super.key});
 
-  final List<Map<String, String>> complianceResults = [
-    {
-      'title': 'March 2025',
-      'subtitle': 'Bacteriological Water Analysis',
-      'sampleCollected': 'March 3, 2025',
-      'resultsReleased': 'March 7, 2025',
-      'status': 'Passed',
-      'validUntil': 'April 2025',
-    },
-    {
-      'title': 'Physical Water Analysis',
-      'subtitle': '',
-      'sampleCollected': 'January 16, 2025',
-      'resultsReleased': 'January 21, 2025',
-      'status': 'Passed',
-      'validUntil': 'June 2025',
-    },
-  ];
+  @override
+  State<ComplianceScreen> createState() => _ComplianceScreenState();
+}
+
+class _ComplianceScreenState extends State<ComplianceScreen> {
+  final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  Map<String, dynamic>? _complianceData;
+  bool _loading = true;
+  String? _selectedFileUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchComplianceData();
+  }
+
+  Future<void> _fetchComplianceData() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      setState(() {
+        _complianceData = null;
+        _loading = false;
+      });
+      return;
+    }
+    try {
+      // Find the station_owner document where userId == user.uid
+      final query = await _firestore
+          .collection('station_owners')
+          .where('userId', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+      if (query.docs.isEmpty) {
+        setState(() {
+          _complianceData = null;
+          _loading = false;
+        });
+        return;
+      }
+      final stationOwnerDocId = query.docs.first.id;
+      final doc = await _firestore
+          .collection('compliance_uploads')
+          .doc(stationOwnerDocId)
+          .get();
+      setState(() {
+        _complianceData = doc.exists ? doc.data() : null;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _complianceData = null;
+        _loading = false;
+      });
+    }
+  }
+
+  // Helper to extract file name from URL
+  String _extractFileName(String url) {
+    try {
+      Uri uri = Uri.parse(url);
+      return uri.pathSegments.isNotEmpty ? uri.pathSegments.last : url;
+    } catch (_) {
+      return url;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final docLabels = {
+      'business_permit': 'Business Permit',
+      'certificate_of_association': 'Certificate of Association',
+      'finished_bacteriological': 'Finished Bacteriological',
+      'finished_physical_chemical': 'Finished Physical/Chemical',
+      'sanitary_permit': 'Sanitary Permit',
+      'source_bacteriological': 'Source Bacteriological',
+      'source_physical_chemical': 'Source Physical/Chemical',
+    };
+
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false, // Remove the back button
+        automaticallyImplyLeading: false,
         title: const Text(
           'Compliance',
-          style: TextStyle(color: Colors.blue), // Set title font color to blue
+          style: TextStyle(color: Colors.blue),
         ),
-        backgroundColor: Colors.white, // Set app bar background to white
-        iconTheme: const IconThemeData(color: Colors.black), // Set icon color to black
+        backgroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications),
-            onPressed: () {
-              // Add notification functionality
-            },
+            onPressed: () {},
           ),
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () {
-              // Add settings functionality
-            },
+            onPressed: () {},
           ),
           IconButton(
             icon: const Icon(Icons.person),
-            onPressed: () {
-              // Add user profile functionality
-            },
+            onPressed: () {},
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Results',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            ElevatedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.history),
-              label: const Text('View Previous Results'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade700,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: ListView.builder(
-                itemCount: complianceResults.length,
-                itemBuilder: (context, index) {
-                  final result = complianceResults[index];
-                  return Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _complianceData == null
+              ? const Center(child: Text('No compliance documents uploaded.'))
+              : Column(
+                  children: [
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.all(16.0),
                         children: [
-                          Text(
-                            result['title']!,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
-                            ),
+                          const Text(
+                            'Compliance Documents',
+                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                           ),
-                          if (result['subtitle']!.isNotEmpty)
-                            Text(
-                              result['subtitle']!,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey,
+                          const SizedBox(height: 16),
+                          ...docLabels.entries.map((entry) {
+                            final url = _complianceData![entry.key];
+                            if (url == null || url.isEmpty) return const SizedBox.shrink();
+                            final fileName = _extractFileName(url);
+                            return Card(
+                              child: ListTile(
+                                title: Text(entry.value),
+                                subtitle: Text(fileName, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.open_in_new, color: Colors.blue),
+                                  onPressed: () {
+                                    setState(() {
+                                      _selectedFileUrl = url;
+                                    });
+                                  },
+                                ),
                               ),
-                            ),
-                          const SizedBox(height: 10),
-                          Text('Sample Collected: ${result['sampleCollected']}'),
-                          Text('Results Released On: ${result['resultsReleased']}'),
-                          Text(
-                            'Status: ${result['status']}',
-                            style: TextStyle(
-                              color: result['status'] == 'Passed' ? Colors.green : Colors.red,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text('Valid Until: ${result['validUntil']}'),
-                          const SizedBox(height: 10),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const CertificationScreen()),
-                              );
-                            },
-                            child: const Text(
-                              'View Certification',
-                              style: TextStyle(color: Colors.blue),
-                            ),
-                          ),
+                            );
+                          }).toList(),
                         ],
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+                    if (_selectedFileUrl != null)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        color: Colors.blue.shade50,
+                        width: double.infinity,
+                        child: _buildFilePreview(_selectedFileUrl!),
+                      ),
+                  ],
+                ),
     );
+  }
+
+  Widget _buildFilePreview(String url) {
+    final uri = Uri.parse(url);
+    final isImage = uri.path.endsWith('.png') ||
+        uri.path.endsWith('.jpg') ||
+        uri.path.endsWith('.jpeg');
+    if (isImage) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Preview:', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Image.network(url, height: 300, fit: BoxFit.contain),
+        ],
+      );
+    } else if (uri.path.endsWith('.pdf')) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Preview:', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.picture_as_pdf),
+            label: const Text('Open PDF'),
+            onPressed: () async {
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+          ),
+        ],
+      );
+    } else {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Preview:', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.open_in_new),
+            label: const Text('Open File'),
+            onPressed: () async {
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+          ),
+        ],
+      );
+    }
   }
 }
 
@@ -465,18 +574,69 @@ class CertificationScreen extends StatelessWidget {
   }
 }
 
-class OrdersScreen extends StatelessWidget {
+class OrdersScreen extends StatefulWidget {
   OrdersScreen({super.key});
 
-  final List<Map<String, dynamic>> orders = [
-    {'orderNo': '057', 'quantity': 5},
-    {'orderNo': '058', 'quantity': 15},
-    {'orderNo': '059', 'quantity': 10},
-    {'orderNo': '060', 'quantity': 20},
-    {'orderNo': '061', 'quantity': 10},
-    {'orderNo': '062', 'quantity': 15},
-    {'orderNo': '063', 'quantity': 25},
-  ];
+  @override
+  State<OrdersScreen> createState() => _OrdersScreenState();
+}
+
+class _OrdersScreenState extends State<OrdersScreen> {
+  final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  List<Map<String, dynamic>> _orders = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchOrders();
+  }
+
+  Future<void> _fetchOrders() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      setState(() {
+        _orders = [];
+        _loading = false;
+      });
+      return;
+    }
+    try {
+      // Find the station_owner document where userId == user.uid
+      final query = await _firestore
+          .collection('station_owners')
+          .where('userId', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+      if (query.docs.isEmpty) {
+        setState(() {
+          _orders = [];
+          _loading = false;
+        });
+        return;
+      }
+      final stationOwnerDocId = query.docs.first.id;
+      final snapshot = await _firestore
+          .collection('station_owners')
+          .doc(stationOwnerDocId)
+          .collection('orders')
+          .get();
+      setState(() {
+        _orders = snapshot.docs.map((doc) {
+          final data = doc.data();
+          data['id'] = doc.id;
+          return data;
+        }).toList();
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _orders = [];
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -497,50 +657,34 @@ class OrdersScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Icon(Icons.calendar_today, color: Colors.blue.shade700),
-                const SizedBox(width: 8),
-                Text(
-                  DateFormat('MMMM d, yyyy').format(DateTime.now()),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView.builder(
-                itemCount: orders.length,
-                itemBuilder: (context, index) {
-                  final order = orders[index];
-                  return Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    child: ListTile(
-                      title: Text('Order No. ${order['orderNo']}'),
-                      subtitle: Text('Quantity: ${order['quantity']}'),
-                      trailing: ElevatedButton(
-                        onPressed: () {
-                          // Add functionality for viewing order details
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _orders.isEmpty
+              ? const Center(child: Text('No orders found.'))
+              : ListView.builder(
+                  itemCount: _orders.length,
+                  itemBuilder: (context, index) {
+                    final order = _orders[index];
+                    return Card(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      child: ListTile(
+                        title: Text('Order ID: ${order['orderId']}'),
+                        subtitle: Text('Status: ${order['status']}'),
+                        trailing: ElevatedButton(
+                          onPressed: () {
+                            // Add functionality for viewing order details
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Text('View'),
                         ),
-                        child: const Text('View'),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+                    );
+                  },
+                ),
     );
   }
 }
@@ -868,8 +1012,8 @@ class ProductInventoryScreen extends StatefulWidget {
 }
 
 class _ProductInventoryScreenState extends State<ProductInventoryScreen> {
-  final _auth = FirebaseAuth.instance;
-  final _firestore = FirebaseFirestore.instance;
+  final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   List<Map<String, dynamic>> _products = [];
   bool _loading = true;
   String? _stationOwnerDocId;
@@ -1348,9 +1492,9 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  late User _user;
+  late firebase_auth.User _user;
 
   // Profile fields
   String _stationName = '';
@@ -1495,12 +1639,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _auth = FirebaseAuth.instance;
+  final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
 
   Future<void> _changePassword() async {
     try {
       final user = _auth.currentUser!;
-      final cred = EmailAuthProvider.credential(
+      final cred = firebase_auth.EmailAuthProvider.credential(
         email: user.email!,
         password: _currentPasswordController.text,
       );

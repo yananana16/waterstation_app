@@ -6,6 +6,7 @@ import 'station/station_home_screen.dart'; // Assuming this is the new screen
 import 'registration_screen.dart';
 import 'station/displayingStatus.dart';
 import 'station/submit_compliance_screen.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -61,7 +62,13 @@ class _LoginScreenState extends State<LoginScreen> {
               DocumentSnapshot stationOwnerDoc = stationOwnerQuery.docs.first;
               String status = stationOwnerDoc['status'];
 
-              _showMessage("Login successful!");
+              Fluttertoast.showToast(
+                msg: "Login successful!",
+                toastLength: Toast.LENGTH_SHORT,
+                gravity: ToastGravity.BOTTOM,
+                backgroundColor: Colors.green,
+                textColor: Colors.white,
+              );
 
               if (status == 'approved') {
                 Navigator.pushReplacement(
@@ -92,7 +99,13 @@ class _LoginScreenState extends State<LoginScreen> {
             // Check if the user exists in the "customers" collection
             DocumentSnapshot customerDoc = await _firestore.collection('customers').doc(uid).get();
             if (customerDoc.exists) {
-              _showMessage("Login successful!");
+              Fluttertoast.showToast(
+                msg: "Login successful!",
+                toastLength: Toast.LENGTH_SHORT,
+                gravity: ToastGravity.BOTTOM,
+                backgroundColor: Colors.green,
+                textColor: Colors.white,
+              );
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => const CustomerHomeScreen()),

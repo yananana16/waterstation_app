@@ -27,6 +27,11 @@ void main() async {
   runApp(const MyApp());
 }
 
+// Example usage in any widget:
+// import 'package:supabase_flutter/supabase_flutter.dart';
+// final supabase = Supabase.instance.client;
+// supabase.from('your_table').select();
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
