@@ -1571,8 +1571,15 @@ class InventoryScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildQuickAction(Icons.show_chart, "Sales"),
+                children: [                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const SalesScreen()),
+                      );
+                    },
+                    child: _buildQuickAction(Icons.show_chart, "Sales"),
+                  ),
                   GestureDetector(
                     onTap: () {
                       showModalBottomSheet(
@@ -2428,6 +2435,215 @@ class _EditBusinessProfileScreenState extends State<EditBusinessProfileScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class SalesScreen extends StatefulWidget {
+  const SalesScreen({super.key});
+
+  @override
+  State<SalesScreen> createState() => _SalesScreenState();
+}
+
+class _SalesScreenState extends State<SalesScreen> {
+  int selectedYear = DateTime.now().year;
+  int selectedMonth = DateTime.now().month;
+
+  final List<String> months = const [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final daysInMonth = DateUtils.getDaysInMonth(selectedYear, selectedMonth);
+    final firstDayOfMonth = DateTime(selectedYear, selectedMonth, 1);
+    final startWeekday = firstDayOfMonth.weekday % 7; // Sunday = 0
+
+    List<Widget> dayWidgets = [];
+    int dayCounter = 1;
+    int totalCells = ((daysInMonth + startWeekday) / 7).ceil() * 7;
+
+    for (int i = 0; i < totalCells; i++) {
+      if (i < startWeekday || dayCounter > daysInMonth) {
+        dayWidgets.add(Container());
+      } else {
+        dayWidgets.add(
+          Container(
+            alignment: Alignment.center,
+            margin: const EdgeInsets.all(2),
+            child: Text(
+              '$dayCounter',
+              style: TextStyle(
+                color: (selectedMonth == DateTime.now().month && selectedYear == DateTime.now().year && dayCounter == DateTime.now().day)
+                    ? Colors.blue
+                    : Colors.black,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        );
+        dayCounter++;
+      }
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top bar
+            Padding(
+              padding: const EdgeInsets.only(top: 24.0, left: 8, right: 8, bottom: 0),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.black),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'Sales',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blue),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.notifications, color: Colors.black),
+                    onPressed: () {},
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.settings, color: Colors.black),
+                    onPressed: () {},
+                  ),
+                ],
+              ),
+            ),
+            // Month and Year pickers
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  DropdownButton<String>(
+                    value: months[selectedMonth - 1],
+                    items: months.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                    onChanged: (val) {
+                      setState(() {
+                        selectedMonth = months.indexOf(val!) + 1;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  const SizedBox(width: 16),
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(18),
+                      color: Colors.grey.shade100,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: Row(
+                      children: [
+                        const Text('Year:', style: TextStyle(fontWeight: FontWeight.w500)),
+                        const SizedBox(width: 6),
+                        DropdownButton<int>(
+                          value: selectedYear,
+                          items: List.generate(5, (i) => selectedYear - 2 + i)
+                              .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
+                              .toList(),
+                          onChanged: (val) {
+                            setState(() {
+                              selectedYear = val!;
+                            });
+                          },
+                          underline: Container(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Calendar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.blue, width: 2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      color: Colors.blue.shade50,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            months[selectedMonth - 1],
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 18),
+                          ),
+                          Text(
+                            '$selectedYear',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 18),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      decoration: const BoxDecoration(
+                        border: Border(top: BorderSide(color: Colors.blue, width: 2)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: const [
+                          Text('Sun', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                          Text('Mon', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                          Text('Tue', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                          Text('Wed', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                          Text('Thur', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                          Text('Fri', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                          Text('Sat', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                        ],
+                      ),
+                    ),
+                    GridView.count(
+                      crossAxisCount: 7,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: dayWidgets,
+                      childAspectRatio: 1.2,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Spacer(),
+            // Bottom navigation bar
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: Colors.grey.shade300)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  IconButton(icon: const Icon(Icons.home), color: Colors.grey, onPressed: () {}),
+                  IconButton(icon: const Icon(Icons.receipt_long), color: Colors.grey, onPressed: () {}),
+                  IconButton(icon: const Icon(Icons.local_shipping), color: Colors.grey, onPressed: () {}),
+                  IconButton(
+                    icon: const Icon(Icons.calendar_month),
+                    color: Colors.blue,
+                    onPressed: () {},
+                  ),
+                  IconButton(icon: const Icon(Icons.person), color: Colors.grey, onPressed: () {}),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

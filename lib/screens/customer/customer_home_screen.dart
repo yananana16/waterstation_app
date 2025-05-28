@@ -9,7 +9,6 @@ import 'dart:math';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import '../login_screen.dart';
-import 'package:permission_handler/permission_handler.dart';
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({super.key});
 
@@ -24,8 +23,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   User? user;
 
   final List<Widget> _screens = [
-    const HomeScreen(),
-    NotificationsScreen(), // Changed from DeliveryScreen to NotificationsScreen
+    const HomeScreen(), // Changed from DeliveryScreen to NotificationsScreen
     StationsScreen(),
     OrdersScreen(),
     const ProfileScreen(),
@@ -80,10 +78,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             icon: Icon(Icons.home),
             label: 'Home',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications), // Changed icon to notifications
-            label: 'Notifications', // Changed label to Notifications
-          ),
+          // Removed Notifications tab here
           BottomNavigationBarItem(
             icon: Icon(Icons.store),
             label: 'Stations',
@@ -104,6 +99,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
+
+  // Add a static variable to track if the dialog has been shown in this session
+  static bool _noAddressDialogShown = false;
 
   Future<String> _getCustomerName() async {
     final FirebaseAuth auth = FirebaseAuth.instance;
@@ -133,8 +131,14 @@ class HomeScreen extends StatelessWidget {
         .doc(user.uid)
         .get();
 
-    final defaultAddressId = customerDoc.data()?['defaultAddressId'];
-    if (defaultAddressId == null) throw Exception('No default address set.');
+    var defaultAddressId = customerDoc.data()?['defaultAddressId'];
+    if (defaultAddressId == "" || defaultAddressId == null) {
+      defaultAddressId = null;
+    }
+    if (defaultAddressId == null) {
+      // No address set
+      return [];
+    }
 
     final defaultAddressDoc = await FirebaseFirestore.instance
         .collection('customers')
@@ -143,7 +147,10 @@ class HomeScreen extends StatelessWidget {
         .doc(defaultAddressId)
         .get();
 
-    if (!defaultAddressDoc.exists) throw Exception('Default address not found.');
+    if (!defaultAddressDoc.exists) {
+      // No address found
+      return [];
+    }
 
     final double customerLat = defaultAddressDoc['latitude'];
     final double customerLon = defaultAddressDoc['longitude'];
@@ -199,7 +206,7 @@ class HomeScreen extends StatelessWidget {
     return FutureBuilder<String>(
       future: _getCustomerName(),
       builder: (context, nameSnapshot) {
-        String displayName = 'Customer';
+        String displayName = 'User';
         if (nameSnapshot.connectionState == ConnectionState.done && nameSnapshot.hasData) {
           displayName = nameSnapshot.data!;
         }
@@ -213,6 +220,280 @@ class HomeScreen extends StatelessWidget {
               );
             }
 
+            // If no address is detected, show dialog and empty recommendations
+            if (snapshot.hasData && snapshot.data != null && snapshot.data!.isEmpty) {
+              // Show dialog only once per session after login
+              if (!_noAddressDialogShown) {
+                _noAddressDialogShown = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: true,
+                    builder: (context) => AlertDialog(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      contentPadding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
+                      titlePadding: const EdgeInsets.only(top: 24, left: 24, right: 24),
+                      title: Column(
+                        children: const [
+                          Icon(Icons.location_off, color: Color(0xFF1565C0), size: 48),
+                          SizedBox(height: 12),
+                          Text(
+                            'No Address Detected',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                              color: Color(0xFF1565C0),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                      content: const Text(
+                        'Please add your address to get personalized station recommendations and enjoy a better experience.',
+                        style: TextStyle(fontSize: 15, color: Colors.black87),
+                        textAlign: TextAlign.center,
+                      ),
+                      actionsAlignment: MainAxisAlignment.center,
+                      actions: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (context) => const MyAddressesScreen()),
+                            );
+                          },
+                          child: const Text('Add Address'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                          child: const Text('Later'),
+                        ),
+                      ],
+                    ),
+                  );
+                });
+              }
+
+              return Scaffold(
+                backgroundColor: Colors.white,
+                body: Stack(
+                  children: [
+                    SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Header with logo, cart, and profile
+                          Container(
+                            padding: const EdgeInsets.fromLTRB(20, 40, 20, 0),
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 120, height: 36),
+                                // Add the text beside the logo (fixed position, so also add in the Stack below)
+                                const Spacer(),
+                                IconButton(
+                                  icon: const Icon(Icons.shopping_cart, color: Colors.black),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => const MyCartScreen()),
+                                    );
+                                  },
+                                ),
+                                // Add notifications icon beside cart
+                                IconButton(
+                                  icon: const Icon(Icons.notifications, color: Colors.black),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => NotificationsScreen()),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(width: 4),
+                                CircleAvatar(
+                                  backgroundColor: Colors.grey.shade200,
+                                  child: Icon(Icons.person, color: Colors.black54),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Illustration and greeting
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Image.asset(
+                                    'assets/assets_illustraion.png', // Place your illustration here
+                                    height: 150,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    const Text(
+                                      "Welcome!",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 22,
+                                        color: Color(0xFF1565C0),
+                                      ),
+                                    ),
+                                    Text(
+                                      displayName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        color: Colors.blue,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          // My Orders section
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "My Orders",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    _OrderStatusIcon(
+                                      icon: Icons.shopping_bag,
+                                      label: "Order Received",
+                                    ),
+                                    _OrderStatusIcon(
+                                      icon: Icons.timelapse,
+                                      label: "In Progress",
+                                    ),
+                                    _OrderStatusIcon(
+                                      icon: Icons.local_shipping,
+                                      label: "Out for Delivery",
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Promo card
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                            child: Card(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              elevation: 2,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
+                                child: Row(
+                                  children: [
+                                    const Expanded(
+                                      child: Text(
+                                        "Get 10% off on your first order!",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () {},
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF1565C0),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                                      ),
+                                      child: const Text("Buy Now"),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Recommendations section
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+                            child: const Text(
+                              "Recommendations",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+                          // No recommendations if address is null
+                          const SizedBox(height: 16),
+                        ],
+                      ),
+                    ),
+                    // Big fixed-position logo (overlapping, not moving other widgets)
+                    Positioned(
+                      top: 20,
+                      left: 20,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          IgnorePointer(
+                            child: Image.asset(
+                              'assets/logo.png', // Place your logo at this path
+                              height: 100,
+                              width: 100,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Add the text beside the logo
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: const [
+                              SizedBox(height: 18),
+                              Text(
+                                "H₂OGO",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 22,
+                                  color: Color(0xFF1565C0),
+                                  letterSpacing: 1.5,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                "Where safety meets efficiency.",
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Color(0xFF3A7CA5),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                // ...existing code for bottomNavigationBar...
+              );
+            }
+
             if (snapshot.hasError) {
               return Scaffold(
                 body: Center(
@@ -221,174 +502,296 @@ class HomeScreen extends StatelessWidget {
               );
             }
 
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return const Scaffold(
-                body: Center(child: Text('No nearby stations found.')),
-              );
-            }
-
-            final stations = snapshot.data!;
+            final stations = snapshot.data ?? [];
 
             return Scaffold(
-              backgroundColor: const Color(0xFFF5F5F5),
-              body: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              backgroundColor: Colors.white,
+              body: Stack(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF1565C0),
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(24),
-                        bottomRight: Radius.circular(24),
-                      ),
-                    ),
-                    child: Row(
+                  SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const CircleAvatar(
-                          backgroundColor: Colors.white,
-                          child: Icon(Icons.person, color: Color(0xFF1565C0)),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Welcome, $displayName!',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                        // Header with logo, cart, and profile
+                        Container(
+                          padding: const EdgeInsets.fromLTRB(20, 40, 20, 0),
+                          child: Row(
+                            children: [
+                              const SizedBox(width: 120, height: 36),
+                              // Add the text beside the logo (fixed position, so also add in the Stack below)
+                              const Spacer(),
+                              IconButton(
+                                icon: const Icon(Icons.shopping_cart, color: Colors.black),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => const MyCartScreen()),
+                                  );
+                                },
+                              ),
+                              // Add notifications icon beside cart
+                              IconButton(
+                                icon: const Icon(Icons.notifications, color: Colors.black),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => NotificationsScreen()),
+                                  );
+                                },
+                              ),
+                              const SizedBox(width: 4),
+                              CircleAvatar(
+                                backgroundColor: Colors.grey.shade200,
+                                child: Icon(Icons.person, color: Colors.black54),
+                              ),
+                            ],
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.settings, color: Colors.white),
-                          onPressed: () {
-                            // Navigate to settings screen
-                          },
+                        // Illustration and greeting
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Image.asset(
+                                  'assets/assets_illustraion.png', // Place your illustration here
+                                  height: 150,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  const Text(
+                                    "Welcome!",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 22,
+                                      color: Color(0xFF1565C0),
+                                    ),
+                                  ),
+                                  Text(
+                                    displayName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        // My Orders section
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "My Orders",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _OrderStatusIcon(
+                                    icon: Icons.shopping_bag,
+                                    label: "Order Received",
+                                  ),
+                                  _OrderStatusIcon(
+                                    icon: Icons.timelapse,
+                                    label: "In Progress",
+                                  ),
+                                  _OrderStatusIcon(
+                                    icon: Icons.local_shipping,
+                                    label: "Out for Delivery",
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Promo card
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                          child: Card(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 2,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
+                              child: Row(
+                                children: [
+                                  const Expanded(
+                                    child: Text(
+                                      "Get 10% off on your first order!",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () {},
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF1565C0),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                                    ),
+                                    child: const Text("Buy Now"),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Recommendations section
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+                          child: const Text(
+                            "Recommendations",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                        // Only show recommendations if stations is not empty
+                        if (stations.isNotEmpty)
+                          ...stations.take(1).map((station) => Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            child: Card(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              elevation: 2,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      station['name'],
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                        color: Color(0xFF1565C0),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      station['address'],
+                                      style: const TextStyle(fontSize: 13, color: Colors.black87),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: const [
+                                        Icon(Icons.access_time, size: 16, color: Colors.black54),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          "Operating Hours 8:00 AM - 7:00 PM",
+                                          style: TextStyle(fontSize: 12, color: Colors.black54),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Row(
+                                          children: List.generate(5, (i) => const Icon(Icons.star, size: 16, color: Colors.amber)),
+                                        ),
+                                        const Spacer(),
+                                        ElevatedButton.icon(
+                                          onPressed: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => StationDetailsScreen(
+                                                  stationName: station['name'],
+                                                  ownerName: 'Owner Name',
+                                                  address: station['address'],
+                                                  stationOwnerId: station['stationOwnerId'],
+                                                  latitude: station['latitude'],
+                                                  longitude: station['longitude'],
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          icon: const Icon(Icons.shopping_cart, size: 16, color: Colors.white),
+                                          label: const Text("Order"),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF1565C0),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          )),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+                  // Big fixed-position logo (overlapping, not moving other widgets)
+                  Positioned(
+                    top: 20,
+                    left: 20,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        IgnorePointer(
+                          child: Image.asset(
+                            'assets/logo.png', // Place your logo at this path
+                            height: 100,
+                            width: 100,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Add the text beside the logo
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            SizedBox(height: 18),
+                            Text(
+                              "H₂OGO",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 22,
+                                color: Color(0xFF1565C0),
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              "Where safety meets efficiency.",
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF3A7CA5),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      "Recommended Stations",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0D47A1),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: stations.length,
-                      itemBuilder: (context, index) {
-  final station = stations[index];
-  return Card(
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-    ),
-    elevation: 6,
-    margin: const EdgeInsets.only(bottom: 20),
-    child: Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const CircleAvatar(
-                backgroundColor: Color(0xFF1565C0),
-                child: Icon(Icons.local_drink, color: Colors.white),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  station['name'],
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF0D47A1),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Icon(Icons.location_on, size: 18, color: Colors.grey),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  station['address'],
-                  style: const TextStyle(fontSize: 14, color: Colors.black87),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(Icons.directions, size: 18, color: Colors.grey),
-              const SizedBox(width: 6),
-              Text(
-                '${station['distance'].toStringAsFixed(2)} km away',
-                style: const TextStyle(fontSize: 14, color: Colors.black54),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => StationDetailsScreen(
-                      stationName: station['name'],
-                      ownerName: 'Owner Name', // Update if available
-                      address: station['address'],
-                      stationOwnerId: station['stationOwnerId'],
-                      latitude: station['latitude'],
-                      longitude: station['longitude'],
-                    ),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.arrow_forward, size: 18, color: Colors.white),
-              label: const Text(
-                'View Details',
-                style: TextStyle(color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1565C0),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-},
-                    ),
-                  ),
                 ],
               ),
+              // ...existing code for bottomNavigationBar...
             );
           },
         );
@@ -396,126 +799,650 @@ class HomeScreen extends StatelessWidget {
     );
   }
 }
-class MyCartScreen extends StatelessWidget {
+
+class _OrderStatusIcon extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _OrderStatusIcon({required this.icon, required this.label});
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        CircleAvatar(
+          backgroundColor: const Color(0xFFE3F2FD),
+          radius: 28,
+          child: Icon(icon, color: const Color(0xFF1565C0), size: 28),
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          width: 70,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: Colors.black87),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class MyCartScreen extends StatefulWidget {
   const MyCartScreen({super.key});
 
   @override
+  State<MyCartScreen> createState() => _MyCartScreenState();
+}
+
+class _MyCartScreenState extends State<MyCartScreen> {
+  bool _editMode = false;
+  // Use ValueNotifier for selection so UI can auto-refresh
+  final ValueNotifier<Set<String>> _selectedCartDocIds = ValueNotifier<Set<String>>({});
+
+  // Helper to group cart items by stationOwnerId
+  Map<String, List<Map<String, dynamic>>> _groupByStation(List<QueryDocumentSnapshot> docs) {
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    for (var doc in docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final stationId = data['stationOwnerId'] ?? 'Unknown Station';
+      if (!grouped.containsKey(stationId)) {
+        grouped[stationId] = [];
+      }
+      grouped[stationId]!.add({...data, 'cartDocId': doc.id});
+    }
+    return grouped;
+  }
+
+  double _calculateTotal(List<QueryDocumentSnapshot> docs) {
+    double sum = 0;
+    for (var doc in docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final price = (data['price'] ?? 0) as num;
+      final quantity = (data['quantity'] ?? 1) as num;
+      sum += price * quantity;
+    }
+    return sum;
+  }
+
+  double _calculateSelectedTotal(List<QueryDocumentSnapshot> docs, Set<String> selectedIds) {
+    double sum = 0;
+    for (var doc in docs) {
+      if (selectedIds.contains(doc.id)) {
+        final data = doc.data() as Map<String, dynamic>;
+        final price = (data['price'] ?? 0) as num;
+        final quantity = (data['quantity'] ?? 1) as num;
+        sum += price * quantity;
+      }
+    }
+    return sum;
+  }
+
+  // Helper to determine selection state for a station group
+  CheckboxState _getStationCheckboxState(List<Map<String, dynamic>> items, Set<String> selectedIds) {
+    final ids = items.map((item) => item['cartDocId'] as String).toList();
+    final selectedCount = ids.where((id) => selectedIds.contains(id)).length;
+    if (selectedCount == 0) return CheckboxState.none;
+    if (selectedCount == ids.length) return CheckboxState.all;
+    return CheckboxState.partial;
+  }
+
+  Future<void> _payWithPayMongoCart({
+    required List<Map<String, dynamic>> lineItems,
+    required BuildContext context,
+  }) async {
+    const secretKey = 'sk_test_tqWtvE1KNtAwrEYejUhbkUdy'; // Replace with your live key for production
+    final url = Uri.parse('https://api.paymongo.com/v1/checkout_sessions');
+
+    final body = jsonEncode({
+      "data": {
+        "attributes": {
+          "billing": {
+            "name": "Customer",
+          },
+          "send_email_receipt": false,
+          "show_description": false,
+          "show_line_items": true,
+          "line_items": lineItems,
+          "payment_method_types": ["gcash", "card"],
+          "success_url": "https://example.com/success",
+          "cancel_url": "https://example.com/cancel"
+        }
+      }
+    });
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Basic ${base64Encode(utf8.encode('$secretKey:'))}',
+          'Content-Type': 'application/json',
+        },
+        body: body,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        final checkoutUrl = data['data']['attributes']?['checkout_url'];
+
+        if (checkoutUrl != null && checkoutUrl is String) {
+          final uri = Uri.parse(checkoutUrl);
+          try {
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            } else {
+              // ignore: deprecated_member_use
+              if (await canLaunch(checkoutUrl)) {
+                // ignore: deprecated_member_use
+                await launch(checkoutUrl);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Could not launch the payment URL.')),
+                );
+              }
+            }
+          } catch (e) {
+            // ignore: deprecated_member_use
+            if (await canLaunch(checkoutUrl)) {
+              // ignore: deprecated_member_use
+              await launch(checkoutUrl);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Could not launch the payment URL: $e')),
+              );
+            }
+          }
+
+          // --- Add order to Firestore after successful payment ---
+          final FirebaseAuth auth = FirebaseAuth.instance;
+          final User? user = auth.currentUser;
+          if (user != null) {
+            // Calculate total price from lineItems
+            double totalPrice = 0;
+            for (var item in lineItems) {
+              final amount = (item['amount'] ?? 0) as int;
+              final quantity = (item['quantity'] ?? 1) as int;
+              totalPrice += (amount / 100.0) * quantity;
+            }
+
+            // Generate a custom OrderID
+            final String orderId = 'ORD-${DateTime.now().millisecondsSinceEpoch}-${user.uid.substring(0, 5)}';
+
+            final orderData = {
+              'orderId': orderId,
+              'customerId': user.uid,
+              'products': lineItems,
+              'status': 'Pending',
+              'timestamp': FieldValue.serverTimestamp(),
+              'totalPrice': totalPrice,
+            };
+
+            // Add order to the global orders collection
+            await FirebaseFirestore.instance.collection('orders').doc(orderId).set(orderData);
+
+            // Add order to each station owner's orders subcollection (group by stationOwnerId)
+            String? stationOwnerId;
+            if (lineItems.isNotEmpty && lineItems.first.containsKey('stationOwnerId')) {
+              stationOwnerId = lineItems.first['stationOwnerId'];
+            }
+            if (stationOwnerId != null) {
+              await FirebaseFirestore.instance
+                  .collection('station_owners')
+                  .doc(stationOwnerId)
+                  .collection('orders')
+                  .doc(orderId)
+                  .set(orderData);
+            }
+
+            // --- Remove paid selected cart items from customer's cart ---
+            // Find all selected cart doc IDs from the current ValueNotifier
+            final selectedCartDocIds = _selectedCartDocIds.value;
+            final batch = FirebaseFirestore.instance.batch();
+            for (final cartDocId in selectedCartDocIds) {
+              final docRef = FirebaseFirestore.instance
+                  .collection('customers')
+                  .doc(user.uid)
+                  .collection('cart')
+                  .doc(cartDocId);
+              batch.delete(docRef);
+            }
+            await batch.commit();
+            _selectedCartDocIds.value = {};
+            // ------------------------------------------------------------
+          }
+          // ------------------------------------------------------
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Checkout URL missing in response.')),
+          );
+        }
+      } else {
+        final errorData = jsonDecode(response.body);
+        String errorMsg = 'Failed to create checkout session';
+        if (errorData is Map &&
+            errorData.containsKey('errors') &&
+            errorData['errors'] is List &&
+            errorData['errors'].isNotEmpty) {
+          errorMsg = errorData['errors'][0]['detail'] ?? errorMsg;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMsg)),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('An error occurred: $e')),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: Text('No user logged in.')),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1565C0), // Dark blue header
+        backgroundColor: const Color(0xFF1565C0),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text(
           'My Cart',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20, letterSpacing: 1.2),
         ),
+        centerTitle: true,
         actions: [
           TextButton(
             onPressed: () {
-              // Handle edit action
+              setState(() {
+                _editMode = !_editMode;
+              });
             },
-            child: const Text(
-              'Edit',
-              style: TextStyle(color: Colors.white),
+            child: Text(
+              _editMode ? 'Done' : 'Edit',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),
         ],
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Column(
-        children: [
-          // Cart items
-          Expanded(
-            child: ListView.builder(
-              itemCount: 2, // Number of items in the cart
-              itemBuilder: (context, index) {
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: ListTile(
-                    leading: Checkbox(
-                      value: true,
-                      onChanged: (value) {
-                        // Handle checkbox toggle
+      backgroundColor: const Color(0xFFF5F8FA),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('customers')
+            .doc(user.uid)
+            .collection('cart')
+            .orderBy('timestamp', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.shopping_cart_outlined, size: 80, color: Colors.grey.shade400),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Your cart is empty.',
+                    style: TextStyle(fontSize: 18, color: Colors.black54, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            );
+          }
+          final docs = snapshot.data!.docs;
+          final grouped = _groupByStation(docs);
+
+          return ValueListenableBuilder<Set<String>>(
+            valueListenable: _selectedCartDocIds,
+            builder: (context, selectedIds, _) {
+              final selectedTotal = _calculateSelectedTotal(docs, selectedIds);
+
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Row(
+                      children: [
+                        Text(
+                          '(${docs.length}) Items',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Color(0xFF1565C0)),
+                        ),
+                        const Spacer(),
+                        Checkbox(
+                          value: selectedIds.length == docs.length && docs.isNotEmpty
+                              ? true
+                              : selectedIds.isEmpty
+                                  ? false
+                                  : null,
+                          tristate: true,
+                          onChanged: (checked) {
+                            if (checked == true) {
+                              _selectedCartDocIds.value = docs.map((d) => d.id).toSet();
+                            } else {
+                              _selectedCartDocIds.value = {};
+                            }
+                          },
+                          activeColor: const Color(0xFF1565C0),
+                        ),
+                        const Text('Select All', style: TextStyle(fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: StatefulBuilder(
+                      builder: (context, setInnerState) {
+                        return ListView(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                          children: grouped.entries.map((entry) {
+                            final stationId = entry.key;
+                            final items = entry.value;
+                            final ids = items.map((item) => item['cartDocId'] as String).toList();
+                            final stationCheckboxState = _getStationCheckboxState(items, selectedIds);
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.store, color: Color(0xFF1565C0)),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          stationId,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                            color: Color(0xFF1565C0),
+                                          ),
+                                        ),
+                                      ),
+                                      Checkbox(
+                                        value: stationCheckboxState == CheckboxState.all
+                                            ? true
+                                            : stationCheckboxState == CheckboxState.none
+                                                ? false
+                                                : null,
+                                        tristate: true,
+                                        onChanged: (checked) {
+                                          if (checked == true) {
+                                            _selectedCartDocIds.value = {
+                                              ...selectedIds,
+                                              ...ids,
+                                            };
+                                          } else {
+                                            _selectedCartDocIds.value = {
+                                              ...selectedIds.where((id) => !ids.contains(id)),
+                                            };
+                                          }
+                                        },
+                                        activeColor: const Color(0xFF1565C0),
+                                      ),
+                                      const Text('Select Station', style: TextStyle(fontSize: 13)),
+                                    ],
+                                  ),
+                                ),
+                                ...items.map((item) {
+                                  final cartDocId = item['cartDocId'] as String;
+                                  return Card(
+                                    margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                                    elevation: 3,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(14),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Checkbox(
+                                            value: selectedIds.contains(cartDocId),
+                                            onChanged: (checked) {
+                                              if (checked == true) {
+                                                _selectedCartDocIds.value = {...selectedIds, cartDocId};
+                                              } else {
+                                                _selectedCartDocIds.value = {...selectedIds}..remove(cartDocId);
+                                              }
+                                            },
+                                            activeColor: const Color(0xFF1565C0),
+                                          ),
+                                          Container(
+                                            width: 60,
+                                            height: 60,
+                                            decoration: BoxDecoration(
+                                              color: Colors.blue.shade50,
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Icon(Icons.local_drink, color: Colors.blue.shade300, size: 36),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  item['name'] ?? '',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                    color: Color(0xFF1565C0),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  item['type'] ?? '',
+                                                  style: const TextStyle(
+                                                    color: Colors.black54,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Row(
+                                                  children: [
+                                                    Text(
+                                                      '₱ ${(item['price'] ?? 0).toStringAsFixed(2)}',
+                                                      style: const TextStyle(
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 15,
+                                                        color: Color(0xFF1565C0),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 10),
+                                                    Text(
+                                                      'Subtotal: ₱ ${((item['price'] ?? 0) * (item['quantity'] ?? 1)).toStringAsFixed(2)}',
+                                                      style: const TextStyle(
+                                                        color: Colors.black54,
+                                                        fontSize: 13,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Row(
+                                                  children: [
+                                                    Container(
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.grey.shade200,
+                                                        borderRadius: BorderRadius.circular(20),
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          IconButton(
+                                                            icon: const Icon(Icons.remove, size: 18),
+                                                            onPressed: (item['quantity'] ?? 1) > 1
+                                                                ? () async {
+                                                                    await FirebaseFirestore.instance
+                                                                        .collection('customers')
+                                                                        .doc(user.uid)
+                                                                        .collection('cart')
+                                                                        .doc(item['cartDocId'])
+                                                                        .update({'quantity': (item['quantity'] ?? 1) - 1});
+                                                                  }
+                                                                : null,
+                                                          ),
+                                                          Text(
+                                                            (item['quantity'] ?? 1).toString(),
+                                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                                          ),
+                                                          IconButton(
+                                                            icon: const Icon(Icons.add, size: 18),
+                                                            onPressed: () async {
+                                                              await FirebaseFirestore.instance
+                                                                  .collection('customers')
+                                                                  .doc(user.uid)
+                                                                  .collection('cart')
+                                                                  .doc(item['cartDocId'])
+                                                                  .update({'quantity': (item['quantity'] ?? 1) + 1});
+                                                            },
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    // Add Remove button (always visible)
+                                                    IconButton(
+                                                      icon: const Icon(Icons.delete, color: Colors.red),
+                                                      tooltip: 'Remove',
+                                                      onPressed: () async {
+                                                        await FirebaseFirestore.instance
+                                                            .collection('customers')
+                                                            .doc(user.uid)
+                                                            .collection('cart')
+                                                            .doc(item['cartDocId'])
+                                                            .delete();
+                                                        _selectedCartDocIds.value = {...selectedIds}..remove(item['cartDocId']);
+                                                      },
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ],
+                            );
+                          }).toList(),
+                        );
                       },
                     ),
-                    title: const Text(
-                      'AQUA SURE',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, -2),
+                        ),
+                      ],
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
                     ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text('Slim Container'),
-                        Text(
-                          '₱ 35.00',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Total',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              Text(
+                                '₱ ${selectedTotal.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20,
+                                  color: Color(0xFF1565C0),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: selectedIds.isNotEmpty
+                              ? () async {
+                                  final selectedDocs = docs.where((doc) => selectedIds.contains(doc.id)).toList();
+                                  final lineItems = selectedDocs.map((doc) {
+                                    final data = doc.data() as Map<String, dynamic>;
+                                    return {
+                                      "currency": "PHP",
+                                      "amount": ((data['price'] ?? 0) * 100).toInt(),
+                                      "name": data['name'] ?? 'Product',
+                                      "quantity": data['quantity'] ?? 1,
+                                    };
+                                  }).toList();
+                                  if (lineItems.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('No items selected for checkout.')),
+                                    );
+                                    return;
+                                  }
+                                  await _payWithPayMongoCart(
+                                    lineItems: lineItems,
+                                    context: context,
+                                  );
+                                }
+                              : null,
+                          icon: const Icon(Icons.payment, size: 18, color: Colors.white),
+                          label: Text(
+                            'Check Out (${selectedIds.length})',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1565C0),
+                            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 2,
                           ),
                         ),
                       ],
                     ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove),
-                          onPressed: () {
-                            // Handle decrease quantity
-                          },
-                        ),
-                        const Text('1'),
-                        IconButton(
-                          icon: const Icon(Icons.add),
-                          onPressed: () {
-                            // Handle increase quantity
-                          },
-                        ),
-                      ],
-                    ),
                   ),
-                );
-              },
-            ),
-          ),
-          // Footer
-          Container(
-            padding: const EdgeInsets.all(16.0),
-            color: Colors.white,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Total',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      '₱ 70.00',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    // Handle checkout
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1565C0), // Dark blue button
-                  ),
-                  child: const Text('Check Out (1)'),
-                ),
-              ],
-            ),
-          ),
-        ],
+                ],
+              );
+            },
+          );
+        },
       ),
     );
   }
 }
+
+// Helper enum for checkbox state (move inside the class for clarity)
+CheckboxState _getStationCheckboxState(List<Map<String, dynamic>> items, Set<String> selectedIds) {
+  final ids = items.map((item) => item['cartDocId'] as String).toList();
+  final selectedCount = ids.where((id) => selectedIds.contains(id)).length;
+  if (selectedCount == 0) return CheckboxState.none;
+  if (selectedCount == ids.length) return CheckboxState.all;
+  return CheckboxState.partial;
+}
+
+// Helper enum for checkbox state
+enum CheckboxState { none, partial, all }
 
 class NotificationsScreen extends StatelessWidget {
   NotificationsScreen({super.key});
@@ -549,35 +1476,24 @@ class NotificationsScreen extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            automaticallyImplyLeading: false, // Remove back button
+            // Add back button
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            automaticallyImplyLeading: false, // Remove default back button
             backgroundColor: const Color(0xFF1565C0), // Dark blue header
             title: Row(
-              children: [
-                const CircleAvatar(
+              children: const [
+                CircleAvatar(
                   backgroundColor: Colors.white,
                   child: Icon(Icons.person, color: Color(0xFF1565C0)),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Text(
-                  displayName,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                  'Profile',
+                  style: TextStyle(color: Colors.white), // Set text color to white
                 ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.shopping_cart, color: Colors.white),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const MyCartScreen()),
-                    );
-                  },
-                ),
-                const SizedBox(width: 10),
-                const Icon(Icons.notifications, color: Colors.white),
               ],
             ),
           ),
@@ -705,12 +1621,10 @@ Future<void> _payWithPayMongo({
 
       if (checkoutUrl != null && checkoutUrl is String) {
         final uri = Uri.parse(checkoutUrl);
-        // Use try-catch and fallback to launch() for older Android/iOS
         try {
           if (await canLaunchUrl(uri)) {
             await launchUrl(uri, mode: LaunchMode.externalApplication);
           } else {
-            // Fallback for older devices or if LaunchMode.externalApplication fails
             // ignore: deprecated_member_use
             if (await canLaunch(checkoutUrl)) {
               // ignore: deprecated_member_use
@@ -722,7 +1636,6 @@ Future<void> _payWithPayMongo({
             }
           }
         } catch (e) {
-          // Fallback for any unexpected error
           // ignore: deprecated_member_use
           if (await canLaunch(checkoutUrl)) {
             // ignore: deprecated_member_use
@@ -733,6 +1646,37 @@ Future<void> _payWithPayMongo({
             );
           }
         }
+
+        // --- Add order to Firestore after successful payment ---
+        final FirebaseAuth auth = FirebaseAuth.instance;
+        final User? user = auth.currentUser;
+        if (user != null) {
+          // Generate a custom OrderID
+          final String orderId = 'ORD-${DateTime.now().millisecondsSinceEpoch}-${user.uid.substring(0, 5)}';
+
+          final orderData = {
+            'orderId': orderId, // Use the custom OrderID
+            'customerId': user.uid,
+            'productOffer': name,
+            'status': 'Pending',
+            'timestamp': FieldValue.serverTimestamp(),
+            'stationOwnerId': widget.stationOwnerId,
+            'quantity': quantity,
+            'price': price,
+          };
+
+          // Add order to the global orders collection
+          await FirebaseFirestore.instance.collection('orders').doc(orderId).set(orderData);
+
+          // Add order to the station owner's orders subcollection
+          await FirebaseFirestore.instance
+              .collection('station_owners')
+              .doc(widget.stationOwnerId)
+              .collection('orders')
+              .doc(orderId)
+              .set(orderData);
+        }
+        // ------------------------------------------------------
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Checkout URL missing in response.')),
@@ -913,201 +1857,366 @@ Future<void> _payWithPayMongo({
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.stationName),
-        centerTitle: true,
-        backgroundColor: const Color(0xFF1565C0),
-        elevation: 4,
-      ),
-      body: Column(
+      body: Stack(
         children: [
-          // Map Section
-          Container(
-            margin: const EdgeInsets.all(16),
-            height: 180,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4))],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: FlutterMap(
-                options: MapOptions(
-                  initialCenter: LatLng(widget.latitude, widget.longitude),
-                  initialZoom: 15,
+          // Main scrollable content
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // --- Back Button and Header ---
+              Padding(
+                padding: const EdgeInsets.only(top: 40, left: 8, right: 8, bottom: 0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.black, size: 28),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    const Spacer(),
+                  ],
                 ),
-                children: [
-                  TileLayer(
-                    urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    subdomains: ['a', 'b', 'c'],
+              ),
+              const SizedBox(height: 60), // Adjusted to account for the back button
+              // --- Start: Station Name Header ---
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  widget.stationName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0D47A1),
                   ),
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: LatLng(widget.latitude, widget.longitude),
-                        child: const Icon(Icons.location_pin, color: Colors.red, size: 40),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Map Section
+              Container(
+                margin: const EdgeInsets.all(16),
+                height: 180,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4))],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: FlutterMap(
+                    options: MapOptions(
+                      initialCenter: LatLng(widget.latitude, widget.longitude),
+                      initialZoom: 15,
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        subdomains: ['a', 'b', 'c'],
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: LatLng(widget.latitude, widget.longitude),
+                            child: const Icon(Icons.location_pin, color: Colors.red, size: 40),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-          // Info & Products
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: ListView(
-                children: [
-                  Text('Owner: ${widget.ownerName}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 6),
-                  Text('Address: ${_dynamicAddress ?? "Loading..."}',
-                      style: const TextStyle(color: Colors.black54)),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Products Available',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1565C0),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('station_owners')
-                        .doc(widget.stationOwnerId)
-                        .collection('products')
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      // Check if products collection exists or has data
-                      if (!snapshot.hasData || snapshot.data == null || snapshot.data!.docs.isEmpty) {
-                        return const Center(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: 20),
-                            child: Text('No products available.'),
-                          ),
-                        );
-                      }
+              // Info & Products
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: ListView(
+                    children: [
+                      Text('Address: ${_dynamicAddress ?? "Loading..."}',
+                          style: const TextStyle(color: Colors.black54)),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Products Available',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1565C0),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('station_owners')
+                            .doc(widget.stationOwnerId)
+                            .collection('products')
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
+                          // Check if products collection exists or has data
+                          if (!snapshot.hasData || snapshot.data == null || snapshot.data!.docs.isEmpty) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 20),
+                                child: Text('No products available.'),
+                              ),
+                            );
+                          }
 
-                      final products = snapshot.data!.docs;
-                      // Filter out products without productOffer key
-                      final validProducts = products.where((product) {
-                        final data = product.data() as Map<String, dynamic>?;
-                        return data != null && data.containsKey('name') && data['name'] != null;
-                      }).toList();
-                      if (validProducts.isEmpty) {
-                        return const Center(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: 20),
-                            child: Text('No products available.'),
-                          ),
-                        );
-                      }
-                      return Column(
-                        children: validProducts.map((product) {
-                          final data = product.data() as Map<String, dynamic>;
-                          final name = data['name'] ?? 'N/A';
-                          final price = data['price'] != null ? '₱ ${data['price'].toStringAsFixed(2)}' : 'N/A';
-                          final priceValue = double.tryParse(data['price']?.toString() ?? '');
-                          final stock = data['stock']?.toString() ?? 'N/A';
-                          final type = data['type'] ?? 'N/A';
-                          final productId = product.id;
-                          final int quantity = _productQuantities[productId] ?? 1;
+                          final products = snapshot.data!.docs;
+                          // Only filter for products with a name (remove productOffer logic)
+                          final validProducts = products.where((product) {
+                            final data = product.data() as Map<String, dynamic>?;
+                            return data != null && data.containsKey('name') && data['name'] != null;
+                          }).toList();
+                          if (validProducts.isEmpty) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 20),
+                                child: Text('No products available.'),
+                              ),
+                            );
+                          }
+                          return Column(
+                            children: validProducts.map((product) {
+                              final data = product.data() as Map<String, dynamic>;
+                              final name = data['name'] ?? 'N/A';
+                              final price = data['price'] != null ? '₱ ${data['price'].toStringAsFixed(2)}' : 'N/A';
+                              final priceValue = double.tryParse(data['price']?.toString() ?? '');
+                              final type = data['type'] ?? 'N/A';
+                              final productId = product.id;
+                              final int quantity = _productQuantities[productId] ?? 1;
 
-                          return Card(
-                            elevation: 4,
-                            margin: const EdgeInsets.symmetric(vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    name,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text("Price: $price"),
-                                  Text("Stock: $stock"),
-                                  Text("Type: $type"),
-                                  const SizedBox(height: 10),
-                                  Row(
+                              return Card(
+                                elevation: 4,
+                                margin: const EdgeInsets.symmetric(vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text("Quantity:"),
-                                      const SizedBox(width: 8),
-                                      IconButton(
-                                        icon: const Icon(Icons.remove),
-                                        onPressed: quantity > 1
-                                            ? () {
-                                                setState(() {
-                                                  _productQuantities[productId] = quantity - 1;
-                                                });
-                                              }
-                                            : null,
+                                      Text(
+                                        name,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                      Text(quantity.toString()),
-                                      IconButton(
-                                        icon: const Icon(Icons.add),
-                                        onPressed: () {
-                                          setState(() {
-                                            _productQuantities[productId] = quantity + 1;
-                                          });
-                                        },
+                                      const SizedBox(height: 6),
+                                      Text("Price: $price"),
+                                      Text("Type: $type"),
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          const Text("Quantity:"),
+                                          const SizedBox(width: 8),
+                                          IconButton(
+                                            icon: const Icon(Icons.remove),
+                                            onPressed: quantity > 1
+                                                ? () {
+                                                    setState(() {
+                                                      _productQuantities[productId] = quantity - 1;
+                                                    });
+                                                  }
+                                                : null,
+                                          ),
+                                          Text(
+                                            quantity.toString(),
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.add),
+                                            onPressed: () {
+                                              setState(() {
+                                                _productQuantities[productId] = quantity + 1;
+                                              });
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        children: [
+                                          ElevatedButton(
+                                            onPressed: () async {
+                                              // Add to Cart logic
+                                              final user = FirebaseAuth.instance.currentUser;
+                                              if (user == null) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('User not logged in.')),
+                                                );
+                                                return;
+                                              }
+                                              try {
+                                                // Check if product already exists in cart
+                                                final cartQuery = await FirebaseFirestore.instance
+                                                    .collection('customers')
+                                                    .doc(user.uid)
+                                                    .collection('cart')
+                                                    .where('productId', isEqualTo: productId)
+                                                    .where('stationOwnerId', isEqualTo: widget.stationOwnerId)
+                                                    .limit(1)
+                                                    .get();
+
+                                                if (cartQuery.docs.isNotEmpty) {
+                                                  // Update quantity if exists
+                                                  final cartDoc = cartQuery.docs.first;
+                                                  final prevQty = (cartDoc['quantity'] ?? 1) as int;
+                                                  await FirebaseFirestore.instance
+                                                      .collection('customers')
+                                                      .doc(user.uid)
+                                                      .collection('cart')
+                                                      .doc(cartDoc.id)
+                                                      .update({
+                                                    'quantity': prevQty + quantity,
+                                                    'timestamp': FieldValue.serverTimestamp(),
+                                                  });
+                                                } else {
+                                                  // Add new cart item
+                                                  await FirebaseFirestore.instance
+                                                      .collection('customers')
+                                                      .doc(user.uid)
+                                                      .collection('cart')
+                                                      .add({
+                                                    'productId': productId,
+                                                    'stationOwnerId': widget.stationOwnerId,
+                                                    'name': name,
+                                                    'price': priceValue,
+                                                    'quantity': quantity,
+                                                    'type': type,
+                                                    'timestamp': FieldValue.serverTimestamp(),
+                                                  });
+                                                }
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Added to cart!')),
+                                                );
+                                              } catch (e) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(content: Text('Failed to add to cart: $e')),
+                                                );
+                                              }
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.grey.shade300,
+                                              foregroundColor: Colors.blue.shade900,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                            child: const Text("Add to Cart"),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          ElevatedButton(
+                                            onPressed: () async {
+                                              if (priceValue != null) {
+                                                await _payWithPayMongo(
+                                                  name: name,
+                                                  price: priceValue,
+                                                  quantity: quantity,
+                                                  context: context,
+                                                );
+                                              } else {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Invalid price')),
+                                                );
+                                              }
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF1565C0),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                            child: const Text("Order Now"),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: ElevatedButton(
-                                      onPressed: () async {
-                                        if (priceValue != null) {
-                                          await _payWithPayMongo(
-                                            name: name,
-                                            price: priceValue,
-                                            quantity: quantity,
-                                            context: context,
-                                          );
-                                        } else {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Invalid price')),
-                                          );
-                                        }
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF1565C0),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                      child: const Text("Order Now"),
-                                    ),
-                                  )
-                                ],
-                              ),
-                            ),
+                                ),
+                              );
+                            }).toList(),
                           );
-                        }).toList(),
-                      );
-                    },
+                        },
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
+            ],
+          ),
+          // --- Start: Fixed-position logo and header (copied from StationsScreen) ---
+          Positioned(
+            top: 20,
+            left: 20,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                IgnorePointer(
+                  child: Image.asset(
+                    'assets/logo.png', // Place your logo at this path
+                    height: 100,
+                    width: 100,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Add the text beside the logo
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    SizedBox(height: 18),
+                    Text(
+                      "H₂OGO",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                        color: Color(0xFF1565C0),
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      "Where safety meets efficiency.",
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF3A7CA5),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
+          Positioned(
+            top: 40,
+            right: 20,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.shopping_cart, color: Colors.black),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const MyCartScreen()),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings, color: Colors.black),
+                  onPressed: () {
+                    // Navigate to settings screen
+                  },
+                ),
+              ],
+            ),
+          ),
+          // --- End: Fixed-position logo and header ---
         ],
       ),
     );
   }
 }
+
 
 class StationsScreen extends StatefulWidget {
   StationsScreen({super.key});
@@ -1121,32 +2230,7 @@ class _StationsScreenState extends State<StationsScreen> {
   final ValueNotifier<String> _searchQueryNotifier = ValueNotifier<String>('');
   List<Map<String, dynamic>> _allStations = [];
 
-  Future<List<Map<String, dynamic>>> _getNearestStations() async {
-    final FirebaseAuth auth = FirebaseAuth.instance;
-    final User? user = auth.currentUser;
-
-    if (user == null) throw Exception('User not logged in.');
-
-    final customerDoc = await FirebaseFirestore.instance
-        .collection('customers')
-        .doc(user.uid)
-        .get();
-
-    final defaultAddressId = customerDoc.data()?['defaultAddressId'];
-    if (defaultAddressId == null) throw Exception('No default address set.');
-
-    final defaultAddressDoc = await FirebaseFirestore.instance
-        .collection('customers')
-        .doc(user.uid)
-        .collection('address')
-        .doc(defaultAddressId)
-        .get();
-
-    if (!defaultAddressDoc.exists) throw Exception('Default address not found.');
-
-    final double customerLat = defaultAddressDoc['latitude'];
-    final double customerLon = defaultAddressDoc['longitude'];
-
+  Future<List<Map<String, dynamic>>> _getAllStations({double? customerLat, double? customerLon}) async {
     final QuerySnapshot stationsSnapshot = await FirebaseFirestore.instance
         .collection('station_owners')
         .where('status', isEqualTo: 'approved')
@@ -1157,15 +2241,17 @@ class _StationsScreenState extends State<StationsScreen> {
     }
 
     final List<Map<String, dynamic>> stations = stationsSnapshot.docs.map((station) {
-      final double stationLat = station['location']['latitude'];
-      final double stationLon = station['location']['longitude'];
-      final double distance = _calculateDistance(
-        customerLat,
-        customerLon,
-        stationLat,
-        stationLon,
-      );
-
+      final double? stationLat = station['location']?['latitude'];
+      final double? stationLon = station['location']?['longitude'];
+      double? distance;
+      if (customerLat != null && customerLon != null && stationLat != null && stationLon != null) {
+        distance = _calculateDistance(
+          customerLat,
+          customerLon,
+          stationLat,
+          stationLon,
+        );
+      }
       return {
         'name': station['stationName'],
         'distance': distance,
@@ -1173,11 +2259,57 @@ class _StationsScreenState extends State<StationsScreen> {
         'stationOwnerId': station.id,
         'latitude': stationLat,
         'longitude': stationLon,
+        'firstName': station['firstName'] ?? '',
+        'lastName': station['lastName'] ?? '',
       };
     }).toList();
 
-    stations.sort((a, b) => a['distance'].compareTo(b['distance']));
+    // If distance is available, sort by distance
+    if (customerLat != null && customerLon != null) {
+      stations.sort((a, b) {
+        final aDist = a['distance'] ?? double.infinity;
+        final bDist = b['distance'] ?? double.infinity;
+        return aDist.compareTo(bDist);
+      });
+    }
     return stations;
+  }
+
+  Future<void> _fetchStations() async {
+    try {
+      final FirebaseAuth auth = FirebaseAuth.instance;
+      final User? user = auth.currentUser;
+      double? customerLat;
+      double? customerLon;
+
+      if (user != null) {
+        final customerDoc = await FirebaseFirestore.instance
+            .collection('customers')
+            .doc(user.uid)
+            .get();
+
+        final defaultAddressId = customerDoc.data()?['defaultAddressId'];
+        if (defaultAddressId != null && defaultAddressId != '') {
+          final defaultAddressDoc = await FirebaseFirestore.instance
+              .collection('customers')
+              .doc(user.uid)
+              .collection('address')
+              .doc(defaultAddressId)
+              .get();
+
+          if (defaultAddressDoc.exists) {
+            customerLat = defaultAddressDoc['latitude'];
+            customerLon = defaultAddressDoc['longitude'];
+          }
+        }
+      }
+      final stations = await _getAllStations(customerLat: customerLat, customerLon: customerLon);
+      setState(() {
+        _allStations = stations;
+      });
+    } catch (e) {
+      // Handle error
+    }
   }
 
   double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
@@ -1219,17 +2351,6 @@ class _StationsScreenState extends State<StationsScreen> {
     });
   }
 
-  Future<void> _fetchStations() async {
-    try {
-      final stations = await _getNearestStations();
-      setState(() {
-        _allStations = stations;
-      });
-    } catch (e) {
-      // Handle error
-    }
-  }
-
   @override
   void dispose() {
     _searchController.dispose();
@@ -1249,38 +2370,287 @@ class _StationsScreenState extends State<StationsScreen> {
 
         return Scaffold(
           backgroundColor: const Color(0xFFF5F5F5),
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          body: Stack(
             children: [
-              Container(
-                padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1565C0),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(24),
-                    bottomRight: Radius.circular(24),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      backgroundColor: Colors.white,
-                      child: Icon(Icons.person, color: Color(0xFF1565C0)),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Welcome, $displayName!',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+
+              // Main scrollable content
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 120), // Space for the fixed header
+                  // --- Start: Custom Search & Filter Bar ---
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        // Search bar
+                        Expanded(
+                          child: Container(
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: TextField(
+                              controller: _searchController,
+                              decoration: InputDecoration(
+                                hintText: 'Search',
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                suffixIcon: Icon(Icons.search, color: Colors.blue.shade700),
+                              ),
+                              style: const TextStyle(fontSize: 15),
+                            ),
+                          ),
                         ),
-                        overflow: TextOverflow.ellipsis,
+                        const SizedBox(width: 16),
+                        // Filter button
+                        Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(24),
+                              onTap: () {
+                                // TODO: Add filter logic here
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      'Filter',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade700,
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Icon(Icons.tune, color: Colors.blue.shade700, size: 20),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // --- End: Custom Search & Filter Bar ---
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      "All Stations",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0D47A1),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ValueListenableBuilder<String>(
+                      valueListenable: _searchQueryNotifier,
+                      builder: (context, searchQuery, child) {
+                        final filteredStations = _allStations.where((station) {
+                          return station['name']
+                              .toLowerCase()
+                              .contains(searchQuery);
+                        }).toList();
+
+                        return ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: filteredStations.length,
+                                                   itemBuilder: (context, index) {
+                            final station = filteredStations[index];
+                            final ownerFirstName = station['firstName'] ?? '';
+                            final ownerLastName = station['lastName'] ?? '';
+                            final ownerName = (ownerFirstName + ' ' + ownerLastName).trim();
+                            return Card(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 6,
+                              margin: const EdgeInsets.only(bottom: 20),
+                              child: Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const CircleAvatar(
+                                          backgroundColor: Color(0xFF1565C0),
+                                          child: Icon(Icons.local_drink, color: Colors.white),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            station['name'],
+                                            style: const TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF0D47A1),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.location_on, size: 18, color: Colors.grey),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            station['address'],
+                                            style: const TextStyle(fontSize: 14, color: Colors.black87),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    if (station['distance'] != null)
+                                      Row(
+                                        children: const [
+                                          Icon(Icons.access_time, size: 16, color: Colors.black54),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            "Operating Hours 8:00 AM - 7:00 PM",
+                                            style: TextStyle(fontSize: 12, color: Colors.black54),
+                                          ),
+                                        ],
+                                      ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Row(
+                                          children: List.generate(5, (i) => const Icon(Icons.star, size: 16, color: Colors.amber)),
+                                        ),
+                                        const Spacer(),
+                                        ElevatedButton.icon(
+                                          onPressed: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => StationDetailsScreen(
+                                                  stationName: station['name'],
+                                                  ownerName: 'Owner Name',
+                                                  address: station['address'],
+                                                  stationOwnerId: station['stationOwnerId'],
+                                                  latitude: station['latitude'],
+                                                  longitude: station['longitude'],
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          icon: const Icon(Icons.shopping_cart, size: 16, color: Colors.white),
+                                          label: const Text("Order"),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF1565C0),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              // --- Start: Fixed-position logo and header (copied from StationsScreen) ---
+              Positioned(
+                top: 20,
+                left: 20,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    IgnorePointer(
+                      child: Image.asset(
+                        'assets/logo.png', // Place your logo at this path
+                        height: 100,
+                        width: 100,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        SizedBox(height: 18),
+                        Text(
+                          "H₂OGO",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22,
+                            color: Color(0xFF1565C0),
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          "Where safety meets efficiency.",
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF3A7CA5),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                top: 40,
+                right: 20,
+                child: Row(
+                  children: [
                     IconButton(
-                      icon: const Icon(Icons.settings, color: Colors.white),
+                      icon: const Icon(Icons.shopping_cart, color: Colors.black),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const MyCartScreen()),
+                        );
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.settings, color: Colors.black),
                       onPressed: () {
                         // Navigate to settings screen
                       },
@@ -1288,151 +2658,7 @@ class _StationsScreenState extends State<StationsScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search stations...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                      borderSide: BorderSide.none,
-                    ),
-                    filled: true,
-                    fillColor: const Color(0xFFE3F2FD),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  "All Stations",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0D47A1),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Expanded(
-                child: ValueListenableBuilder<String>(
-                  valueListenable: _searchQueryNotifier,
-                  builder: (context, searchQuery, child) {
-                    final filteredStations = _allStations.where((station) {
-                      return station['name']
-                          .toLowerCase()
-                          .contains(searchQuery);
-                    }).toList();
-
-                    return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: filteredStations.length,
-                      itemBuilder: (context, index) {
-                        final station = filteredStations[index];
-                        return Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 6,
-                          margin: const EdgeInsets.only(bottom: 20),
-                          child: Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const CircleAvatar(
-                                      backgroundColor: Color(0xFF1565C0),
-                                      child: Icon(Icons.local_drink, color: Colors.white),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        station['name'],
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF0D47A1),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.location_on, size: 18, color: Colors.grey),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        station['address'],
-                                        style: const TextStyle(fontSize: 14, color: Colors.black87),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.directions, size: 18, color: Colors.grey),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '${station['distance'].toStringAsFixed(2)} km away',
-                                      style: const TextStyle(fontSize: 14, color: Colors.black54),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => StationDetailsScreen(
-                                            stationName: station['name'],
-                                            ownerName: 'Owner Name', // Update if available
-                                            address: station['address'],
-                                            stationOwnerId: station['stationOwnerId'],
-                                            latitude: station['latitude'],
-                                            longitude: station['longitude'],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    icon: const Icon(Icons.arrow_forward, size: 18, color: Colors.white),
-                                    label: const Text(
-                                      'View Details',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF1565C0),
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
+              // --- End: Fixed-position logo and header ---
             ],
           ),
         );
@@ -1440,6 +2666,7 @@ class _StationsScreenState extends State<StationsScreen> {
     );
   }
 }
+
 
 class OrdersScreen extends StatelessWidget {
   OrdersScreen({super.key});
@@ -1514,134 +2741,205 @@ class OrdersScreen extends StatelessWidget {
 
         return Scaffold(
           backgroundColor: const Color(0xFFF5F5F5),
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          body: Stack(
             children: [
-              Container(
-                padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1565C0),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(24),
-                    bottomRight: Radius.circular(24),
-                  ),
-                ),
-                child: const Text(
-                  'My Orders',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: orders.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No orders found.',
-                          style: TextStyle(fontSize: 16, color: Colors.black54),
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: orders.length,
-                        itemBuilder: (context, index) {
-                          final order = orders[index];
-                          final statusColor = _getStatusColor(order['status']);
-                          final statusIcon = _getStatusIcon(order['status']);
-                          final formattedDate = _dateFormat.format(order['timestamp']);
 
-                          return Card(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            elevation: 6,
-                            margin: const EdgeInsets.only(bottom: 20),
-                            child: Container(
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.local_shipping, color: Colors.blue),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          'Order ID: ${order['orderId']}',
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.storefront, size: 18, color: Colors.grey),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: Text(
-                                          'Station: ${order['station']}',
-                                          style: const TextStyle(fontSize: 14, color: Colors.black87),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.local_drink, size: 18, color: Colors.grey),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: Text(
-                                          'Product: ${order['productOffer']}',
-                                          style: const TextStyle(fontSize: 14, color: Colors.black87),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Icon(statusIcon, size: 18, color: statusColor),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Status: ${order['status']}',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                          color: statusColor,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Date: $formattedDate',
-                                        style: const TextStyle(color: Colors.black54, fontSize: 13),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+              // Main scrollable content
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 120), // Space for the fixed header
+                  // --- Start: Custom Header (copied from StationsScreen) ---
+                  // (Header is now handled by the Stack below)
+                  // --- End: Custom Header ---
+                 
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      "My Orders",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0D47A1),
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: orders.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No orders found.',
+                              style: TextStyle(fontSize: 16, color: Colors.black54),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: orders.length,
+                            itemBuilder: (context, index) {
+                              final order = orders[index];
+                              final statusColor = _getStatusColor(order['status']);
+                              final statusIcon = _getStatusIcon(order['status']);
+                              final formattedDate = _dateFormat.format(order['timestamp']);
+
+                              return Card(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                elevation: 6,
+                                margin: const EdgeInsets.only(bottom: 20),
+                                child: Container(
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.local_shipping, color: Colors.blue),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              'Order ID: ${order['orderId']}',
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.storefront, size: 18, color: Colors.grey),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              'Station: ${order['station']}',
+                                              style: const TextStyle(fontSize: 14, color: Colors.black87),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.local_drink, size: 18, color: Colors.grey),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              'Product: ${order['productOffer']}',
+                                              style: const TextStyle(fontSize: 14, color: Colors.black87),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Icon(statusIcon, size: 18, color: statusColor),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Status: ${order['status']}',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: statusColor,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Date: $formattedDate',
+                                            style: const TextStyle(color: Colors.black54, fontSize: 13),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
               ),
+              // --- Start: Fixed-position logo and header (copied from StationsScreen) ---
+              Positioned(
+                top: 20,
+                left: 20,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    IgnorePointer(
+                      child: Image.asset(
+                        'assets/logo.png', // Place your logo at this path
+                        height: 100,
+                        width: 100,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        SizedBox(height: 18),
+                        Text(
+                          "H₂OGO",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22,
+                            color: Color(0xFF1565C0),
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          "Where safety meets efficiency.",
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF3A7CA5),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                top: 40,
+                right: 20,
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.shopping_cart, color: Colors.black),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const MyCartScreen()),
+                        );
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.settings, color: Colors.black),
+                      onPressed: () {
+                        // Navigate to settings screen
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              // --- End: Fixed-position logo and header ---
             ],
           ),
         );
@@ -1700,7 +2998,7 @@ class ProfileScreen extends StatelessWidget {
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'Brgy. Duyan-duyan\nSanta Barbara, Iloilo, Philippines\n(+63) 912 345 6789',
+                          'Brgy. Duyan-duyan\nSanta Barbara, Iloilo, Philippines\n(+63) 912  345 6789',
                           style: TextStyle(color: Colors.white, fontSize: 14),
                         ),
                       ],
@@ -2172,12 +3470,14 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
+             
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Text(
                   _currentAddress,
                   style: const TextStyle(
                     fontSize: 16,
+
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
