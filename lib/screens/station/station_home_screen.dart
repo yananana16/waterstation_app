@@ -6,46 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:Hydrify/screens/login_screen.dart';
 import 'package:url_launcher/url_launcher.dart'; // <-- Add this import
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Supabase.initialize(
-    url: 'https://ygrdgnohxkwbkuftieil.supabase.co', // Updated to match main.dart
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlncmRnbm9oeGt3Ymt1ZnRpZWlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE3NTUyOTgsImV4cCI6MjA1NzMzMTI5OH0.j7jVz-Zx4KcEKxBPHbqRNyMxQmwDsQaEq3xiK4afgxc', // Updated to match main.dart
-  );
-  runApp(const MyApp());
-}
-
-// Example: Supabase storage usage
-final SupabaseClient supabase = Supabase.instance.client;
-
-// Example function to list files from a Supabase storage bucket
-Future<List<FileObject>> listSupabaseFiles(String bucket) async {
-  final response = await supabase.storage.from(bucket).list();
-  if (response.isEmpty) {
-    return [];
-  }
-  return response;
-}
-
-// List files from Supabase storage bucket 'compliance_docs' in 'uploads' folder
-Future<List<FileObject>> listComplianceDocs() async {
-  final response = await supabase.storage.from('compliance_docs').list(path: 'uploads');
-  if (response.isEmpty) {
-    return [];
-  }
-  return response;
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: const StationHomeScreen(),
-    );
-  }
-}
 
 class StationHomeScreen extends StatefulWidget {
   const StationHomeScreen({super.key});
@@ -111,8 +71,216 @@ class _StationHomeScreenState extends State<StationHomeScreen> {
   }
 }
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  double _monthlyRevenue = 0;
+  bool _loadingRevenue = true;
+
+  double _totalSales = 0;
+  bool _loadingTotalSales = true;
+
+  double _dailySales = 0;
+  bool _loadingDailySales = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMonthlyRevenue();
+    _fetchTotalSales();
+    _fetchDailySales();
+  }
+
+  Future<void> _fetchMonthlyRevenue() async {
+  try {
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() {
+        _monthlyRevenue = 0;
+        _loadingRevenue = false;
+      });
+      return;
+    }
+
+    // Get the station owner's document
+    final query = await FirebaseFirestore.instance
+        .collection('station_owners')
+        .where('userId', isEqualTo: user.uid)
+        .limit(1)
+        .get();
+
+    if (query.docs.isEmpty) {
+      setState(() {
+        _monthlyRevenue = 0;
+        _loadingRevenue = false;
+      });
+      return;
+    }
+
+    final stationOwnerDocId = query.docs.first.id;
+
+    // Get all sales (because 'date' is stored as String and cannot be filtered in Firestore)
+    final salesSnapshot = await FirebaseFirestore.instance
+        .collection('station_owners')
+        .doc(stationOwnerDocId)
+        .collection('sales')
+        .get();
+
+    final startOfMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+    double sum = 0;
+
+    for (var doc in salesSnapshot.docs) {
+      final data = doc.data();
+      final totalSales = data['total_sales'];
+      final dateString = data['date'];
+
+      try {
+        final parts = dateString.split('/');
+        if (parts.length == 3) {
+          final month = int.parse(parts[0]);
+          final day = int.parse(parts[1]);
+          final year = int.parse(parts[2]);
+          final saleDate = DateTime(year, month, day);
+
+          if (saleDate.isAfter(startOfMonth) || saleDate.isAtSameMomentAs(startOfMonth)) {
+            if (totalSales is int) {
+              sum += totalSales.toDouble();
+            } else if (totalSales is double) {
+              sum += totalSales;
+            }
+          }
+        }
+      } catch (e) {
+        // skip invalid date format
+        continue;
+      }
+    }
+
+    setState(() {
+      _monthlyRevenue = sum;
+      _loadingRevenue = false;
+    });
+  } catch (e) {
+    setState(() {
+      _monthlyRevenue = 0;
+      _loadingRevenue = false;
+    });
+  }
+}
+
+
+  Future<void> _fetchTotalSales() async {
+    try {
+      final user = firebase_auth.FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        setState(() {
+          _totalSales = 0;
+          _loadingTotalSales = false;
+        });
+        return;
+      }
+      final query = await FirebaseFirestore.instance
+          .collection('station_owners')
+          .where('userId', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+      if (query.docs.isEmpty) {
+        setState(() {
+          _totalSales = 0;
+          _loadingTotalSales = false;
+        });
+        return;
+      }
+      final stationOwnerDocId = query.docs.first.id;
+      final salesSnapshot = await FirebaseFirestore.instance
+          .collection('station_owners')
+          .doc(stationOwnerDocId)
+          .collection('sales')
+          .get();
+
+      double sum = 0;
+      for (var doc in salesSnapshot.docs) {
+        final data = doc.data();
+        final totalSales = data['total_sales'];
+        if (totalSales is int) {
+          sum += totalSales.toDouble();
+        } else if (totalSales is double) {
+          sum += totalSales;
+        }
+      }
+      setState(() {
+        _totalSales = sum;
+        _loadingTotalSales = false;
+      });
+    } catch (e) {
+      setState(() {
+        _totalSales = 0;
+        _loadingTotalSales = false;
+      });
+    }
+  }
+
+  Future<void> _fetchDailySales() async {
+    try {
+      final user = firebase_auth.FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        setState(() {
+          _dailySales = 0;
+          _loadingDailySales = false;
+        });
+        return;
+      }
+      final query = await FirebaseFirestore.instance
+          .collection('station_owners')
+          .where('userId', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+      if (query.docs.isEmpty) {
+        setState(() {
+          _dailySales = 0;
+          _loadingDailySales = false;
+        });
+        return;
+      }
+      final stationOwnerDocId = query.docs.first.id;
+      final salesSnapshot = await FirebaseFirestore.instance
+          .collection('station_owners')
+          .doc(stationOwnerDocId)
+          .collection('sales')
+          .get();
+
+      final now = DateTime.now();
+      final todayString = "${now.month}/${now.day}/${now.year}";
+
+      double sum = 0;
+      for (var doc in salesSnapshot.docs) {
+        final data = doc.data();
+        final totalSales = data['total_sales'];
+        final dateString = data['date'];
+        if (dateString == todayString) {
+          if (totalSales is int) {
+            sum += totalSales.toDouble();
+          } else if (totalSales is double) {
+            sum += totalSales;
+          }
+        }
+      }
+      setState(() {
+        _dailySales = sum;
+        _loadingDailySales = false;
+      });
+    } catch (e) {
+      setState(() {
+        _dailySales = 0;
+        _loadingDailySales = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -243,6 +411,18 @@ class HomeScreen extends StatelessWidget {
                               Container(
                                 height: 100,
                                 color: Colors.blue.shade100, // Placeholder for graph
+                                child: Center(
+                                  child: _loadingDailySales
+                                      ? const CircularProgressIndicator()
+                                      : Text(
+                                          '₱${_dailySales.toStringAsFixed(2)}',
+                                          style: const TextStyle(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.blue,
+                                          ),
+                                        ),
+                                ),
                               ),
                             ],
                           ),
@@ -256,11 +436,56 @@ class HomeScreen extends StatelessWidget {
                               Container(
                                 height: 100,
                                 color: Colors.blue.shade100, // Placeholder for graph
+                                child: Center(
+                                  child: _loadingRevenue
+                                      ? const CircularProgressIndicator()
+                                      : Text(
+                                          '₱${_monthlyRevenue.toStringAsFixed(2)}',
+                                          style: const TextStyle(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.blue,
+                                          ),
+                                        ),
+                                ),
                               ),
                             ],
                           ),
                         ),
                       ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // --- Total Sales Section ---
+            Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              color: Colors.blue.shade50,
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.attach_money, color: Colors.blue, size: 32),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _loadingTotalSales
+                          ? const LinearProgressIndicator()
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Total Sales',
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '₱${_totalSales.toStringAsFixed(2)}',
+                                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+                                ),
+                              ],
+                            ),
                     ),
                   ],
                 ),
@@ -1464,6 +1689,15 @@ class InventoryScreen extends StatelessWidget {
                     },
                     child: _buildQuickAction(Icons.inventory_2, "Inventory"),
                   ),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const ProductsScreen()),
+                      );
+                    },
+                    child: _buildQuickAction(Icons.shopping_bag, "Products"),
+                  ),
                   _buildQuickAction(Icons.insert_chart, "Report"),
                   _buildQuickAction(Icons.groups, "Staffs"),
                 ],
@@ -1499,6 +1733,205 @@ class InventoryScreen extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// --- Products Screen ---
+class ProductsScreen extends StatefulWidget {
+  const ProductsScreen({super.key});
+
+  @override
+  State<ProductsScreen> createState() => _ProductsScreenState();
+}
+
+class _ProductsScreenState extends State<ProductsScreen> {
+  List<Map<String, dynamic>> _products = [];
+  bool _loading = true;
+
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _typeController = TextEditingController();
+  final TextEditingController _priceController = TextEditingController();
+  final TextEditingController _stockController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProducts();
+  }
+
+  Future<void> _fetchProducts() async {
+    setState(() {
+      _loading = true;
+    });
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() {
+        _products = [];
+        _loading = false;
+      });
+      return;
+    }
+    final query = await FirebaseFirestore.instance
+        .collection('station_owners')
+        .where('userId', isEqualTo: user.uid)
+        .limit(1)
+        .get();
+    if (query.docs.isNotEmpty) {
+      final stationOwnerDocId = query.docs.first.id;
+      final snapshot = await FirebaseFirestore.instance
+          .collection('station_owners')
+          .doc(stationOwnerDocId)
+          .collection('products')
+          .get();
+      setState(() {
+        _products = snapshot.docs.map((doc) {
+          final data = doc.data();
+          data['id'] = doc.id;
+          return data;
+        }).toList();
+        _loading = false;
+      });
+    } else {
+      setState(() {
+        _products = [];
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _addProduct() async {
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final query = await FirebaseFirestore.instance
+        .collection('station_owners')
+        .where('userId', isEqualTo: user.uid)
+        .limit(1)
+        .get();
+    if (query.docs.isNotEmpty) {
+      final stationOwnerDocId = query.docs.first.id;
+      await FirebaseFirestore.instance
+          .collection('station_owners')
+          .doc(stationOwnerDocId)
+          .collection('products')
+          .add({
+        'name': _nameController.text.trim(),
+        'type': _typeController.text.trim(),
+        'price': double.tryParse(_priceController.text.trim()) ?? 0.0,
+        'stock': int.tryParse(_stockController.text.trim()) ?? 0,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      _nameController.clear();
+      _typeController.clear();
+      _priceController.clear();
+      _stockController.clear();
+      await _fetchProducts();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Product added!')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Products', style: TextStyle(color: Colors.blue)),
+        backgroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.black),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Expanded(
+                  child: _products.isEmpty
+                      ? const Center(child: Text('No products found.'))
+                      : ListView.builder(
+                          itemCount: _products.length,
+                          itemBuilder: (context, index) {
+                            final product = _products[index];
+                            return Card(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                              child: ListTile(
+                                leading: const Icon(Icons.shopping_bag, color: Colors.blue),
+                                title: Text(product['name'] ?? ''),
+                                subtitle: Text(
+                                  'Type: ${product['type'] ?? ''}\nPrice: ₱${(product['price'] ?? 0).toString()}\nStock: ${product['stock'] ?? 0}',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: ExpansionTile(
+                    title: const Text("Add Product", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                    leading: const Icon(Icons.add, color: Colors.blue),
+                    children: [
+                      TextField(
+                        controller: _nameController,
+                        decoration: const InputDecoration(
+                          labelText: "Product Name",
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.label),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _typeController,
+                        decoration: const InputDecoration(
+                          labelText: "Type (e.g. Purified, Mineral)",
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.category),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _priceController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: "Price",
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.attach_money),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _stockController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: "Stock",
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.inventory_2),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _addProduct,
+                          icon: const Icon(Icons.save),
+                          label: const Text("Save Product"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 40),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

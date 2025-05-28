@@ -6,8 +6,10 @@ import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import '../login_screen.dart';
+import 'package:permission_handler/permission_handler.dart';
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({super.key});
 
@@ -651,6 +653,112 @@ class StationDetailsScreen extends StatefulWidget {
 
 class _StationDetailsScreenState extends State<StationDetailsScreen> {
   String? _dynamicAddress;
+  // Add a map to track quantity per product (by product doc id)
+  final Map<String, int> _productQuantities = {};
+Future<void> _payWithPayMongo({
+  required String name,
+  required double price,
+  required int quantity,
+  required BuildContext context,
+}) async {
+  const secretKey = 'sk_test_tqWtvE1KNtAwrEYejUhbkUdy'; // Replace with your live key for production
+  final url = Uri.parse('https://api.paymongo.com/v1/checkout_sessions');
+  final amount = (price * 100).toInt(); // Convert PHP to centavos
+
+  final body = jsonEncode({
+    "data": {
+      "attributes": {
+        "billing": {
+          "name": name,
+        },
+        "send_email_receipt": false,
+        "show_description": false,
+        "show_line_items": true,
+        "line_items": [
+          {
+            "currency": "PHP",
+            "amount": amount,
+            "name": name,
+            "quantity": quantity,
+          }
+        ],
+        "payment_method_types": ["gcash", "card"],
+        "success_url": "https://example.com/success",
+        "cancel_url": "https://example.com/cancel"
+      }
+    }
+  });
+
+  try {
+    final response = await http.post(
+      url,
+      headers: {
+        'Authorization': 'Basic ${base64Encode(utf8.encode('$secretKey:'))}',
+        'Content-Type': 'application/json',
+      },
+      body: body,
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = jsonDecode(response.body);
+      final checkoutUrl = data['data']['attributes']?['checkout_url'];
+
+      if (checkoutUrl != null && checkoutUrl is String) {
+        final uri = Uri.parse(checkoutUrl);
+        // Use try-catch and fallback to launch() for older Android/iOS
+        try {
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          } else {
+            // Fallback for older devices or if LaunchMode.externalApplication fails
+            // ignore: deprecated_member_use
+            if (await canLaunch(checkoutUrl)) {
+              // ignore: deprecated_member_use
+              await launch(checkoutUrl);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Could not launch the payment URL.')),
+              );
+            }
+          }
+        } catch (e) {
+          // Fallback for any unexpected error
+          // ignore: deprecated_member_use
+          if (await canLaunch(checkoutUrl)) {
+            // ignore: deprecated_member_use
+            await launch(checkoutUrl);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not launch the payment URL: $e')),
+            );
+          }
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Checkout URL missing in response.')),
+        );
+      }
+    } else {
+      final errorData = jsonDecode(response.body);
+      String errorMsg = 'Failed to create checkout session';
+      if (errorData is Map &&
+          errorData.containsKey('errors') &&
+          errorData['errors'] is List &&
+          errorData['errors'].isNotEmpty) {
+        errorMsg = errorData['errors'][0]['detail'] ?? errorMsg;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMsg)),
+      );
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('An error occurred: $e')),
+    );
+  }
+}
+
 
   @override
   void initState() {
@@ -890,7 +998,7 @@ class _StationDetailsScreenState extends State<StationDetailsScreen> {
                       // Filter out products without productOffer key
                       final validProducts = products.where((product) {
                         final data = product.data() as Map<String, dynamic>?;
-                        return data != null && data.containsKey('productOffer') && data['productOffer'] != null;
+                        return data != null && data.containsKey('name') && data['name'] != null;
                       }).toList();
                       if (validProducts.isEmpty) {
                         return const Center(
@@ -903,10 +1011,13 @@ class _StationDetailsScreenState extends State<StationDetailsScreen> {
                       return Column(
                         children: validProducts.map((product) {
                           final data = product.data() as Map<String, dynamic>;
-                          final productOffer = data['productOffer'] ?? 'N/A';
-                          final waterType = data['waterType'] ?? 'N/A';
-                          final gallon = data['gallon'] == true ? 'Yes' : 'No';
-                          final delivery = data['deliveryAvailable'] ?? 'No';
+                          final name = data['name'] ?? 'N/A';
+                          final price = data['price'] != null ? '₱ ${data['price'].toStringAsFixed(2)}' : 'N/A';
+                          final priceValue = double.tryParse(data['price']?.toString() ?? '');
+                          final stock = data['stock']?.toString() ?? 'N/A';
+                          final type = data['type'] ?? 'N/A';
+                          final productId = product.id;
+                          final int quantity = _productQuantities[productId] ?? 1;
 
                           return Card(
                             elevation: 4,
@@ -918,22 +1029,59 @@ class _StationDetailsScreenState extends State<StationDetailsScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    productOffer,
+                                    name,
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                   const SizedBox(height: 6),
-                                  Text("Water Type: $waterType"),
-                                  Text("Gallon: $gallon"),
-                                  Text("Delivery: $delivery"),
+                                  Text("Price: $price"),
+                                  Text("Stock: $stock"),
+                                  Text("Type: $type"),
                                   const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      const Text("Quantity:"),
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: const Icon(Icons.remove),
+                                        onPressed: quantity > 1
+                                            ? () {
+                                                setState(() {
+                                                  _productQuantities[productId] = quantity - 1;
+                                                });
+                                              }
+                                            : null,
+                                      ),
+                                      Text(quantity.toString()),
+                                      IconButton(
+                                        icon: const Icon(Icons.add),
+                                        onPressed: () {
+                                          setState(() {
+                                            _productQuantities[productId] = quantity + 1;
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
                                   Align(
                                     alignment: Alignment.centerRight,
                                     child: ElevatedButton(
-                                      onPressed: () =>
-                                          _placeOrder(context, productOffer, widget.stationOwnerId),
+                                      onPressed: () async {
+                                        if (priceValue != null) {
+                                          await _payWithPayMongo(
+                                            name: name,
+                                            price: priceValue,
+                                            quantity: quantity,
+                                            context: context,
+                                          );
+                                        } else {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Invalid price')),
+                                          );
+                                        }
+                                      },
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: const Color(0xFF1565C0),
                                         shape: RoundedRectangleBorder(
