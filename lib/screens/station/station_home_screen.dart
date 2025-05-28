@@ -255,7 +255,8 @@ class _HomeScreenState extends State<HomeScreen> {
           .get();
 
       final now = DateTime.now();
-      final todayString = "${now.month}/${now.day}/${now.year}";
+      // Ensure day and month are zero-padded to match Firestore format (e.g., 09/05/2025)
+      final todayString = "${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}"; // DD/MM/YYYY
 
       double sum = 0;
       for (var doc in salesSnapshot.docs) {
@@ -2500,6 +2501,7 @@ class _SalesScreenState extends State<SalesScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back, color: Colors.black),
+                   
                     onPressed: () => Navigator.pop(context),
                   ),
                   const SizedBox(width: 4),
