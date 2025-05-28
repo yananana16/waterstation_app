@@ -661,7 +661,7 @@ Future<void> _payWithPayMongo({
   required int quantity,
   required BuildContext context,
 }) async {
-  const secretKey = 'sample.key'; // Replace with your live key for production
+  const secretKey = 'sk_test_tqWtvE1KNtAwrEYejUhbkUdy'; // Replace with your live key for production
   final url = Uri.parse('https://api.paymongo.com/v1/checkout_sessions');
   final amount = (price * 100).toInt(); // Convert PHP to centavos
 
