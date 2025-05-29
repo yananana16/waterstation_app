@@ -2514,6 +2514,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 labelText: 'Enter current password',
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.visibility_off),
+                 
                   onPressed: () {
                     // Add visibility toggle functionality
                   },
@@ -2584,13 +2585,25 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
   final _contactNumberController = TextEditingController();
   final _emailController = TextEditingController();
 
+  final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   @override
   void initState() {
     super.initState();
-    // Initialize controllers with existing user data if available
-    _userNameController.text = "Name"; // Replace with actual user data
-    _contactNumberController.text = "0912 345 6789"; // Replace with actual user data
-    _emailController.text = "user@gmail.com"; // Replace with actual user data
+    _fetchUserProfile();
+  }
+
+  Future<void> _fetchUserProfile() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    setState(() {
+      _userNameController.text =
+          '${doc['firstName'] ?? ''} ${doc['lastName'] ?? ''}'.trim();
+      _contactNumberController.text = doc['phone'] ?? '';
+      _emailController.text = doc['email'] ?? user.email ?? '';
+    });
   }
 
   @override
@@ -2695,16 +2708,34 @@ class _EditBusinessProfileScreenState extends State<EditBusinessProfileScreen> {
   final _descriptionController = TextEditingController();
   final _productOfferingController = TextEditingController();
 
+  final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   @override
   void initState() {
     super.initState();
-    // Initialize controllers with existing business data if available
-    _businessNameController.text = "Quench-O Purified Drinking Water"; // Replace with actual data
-    _addressController.text = "42-A Gustilo St., La Paz, Iloilo City"; // Replace with actual data
-    _contactNumberController.text = "0912 345 6789"; // Replace with actual data
-    _emailController.text = "quench_o@gmail.com"; // Replace with actual data
-    _descriptionController.text = "Available Water Types & Pricing\nPurified Water - PHP 25"; // Replace with actual data
-    _productOfferingController.text = "Bottles\nSlim"; // Replace with actual data
+    _fetchBusinessProfile();
+  }
+
+  Future<void> _fetchBusinessProfile() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    // Get station owner document
+    final query = await _firestore
+        .collection('station_owners')
+        .where('userId', isEqualTo: user.uid)
+        .limit(1)
+        .get();
+    if (query.docs.isNotEmpty) {
+      final doc = query.docs.first;
+      setState(() {
+        _businessNameController.text = doc['stationName'] ?? '';
+        _addressController.text = doc['address'] ?? '';
+        _contactNumberController.text = doc['phone'] ?? '';
+        _emailController.text = doc['email'] ?? '';
+        // Keep description and product offering as is or fetch if you store them
+      });
+    }
   }
 
   @override

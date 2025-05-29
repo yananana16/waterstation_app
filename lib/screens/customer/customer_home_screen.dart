@@ -3225,84 +3225,109 @@ class OrdersScreen extends StatelessWidget {
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
+  Future<Map<String, dynamic>> _getProfileData() async {
+    final firebase_auth.FirebaseAuth auth = firebase_auth.FirebaseAuth.instance;
+    final firebase_auth.User? user = auth.currentUser;
+
+    if (user != null) {
+      final DocumentSnapshot customerDoc = await FirebaseFirestore.instance
+          .collection('customers')
+          .doc(user.uid)
+          .get();
+
+      if (customerDoc.exists) {
+        return {
+          'firstName': customerDoc['firstName'] ?? '',
+        };
+      }
+    }
+    return {
+      'firstName': '',
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        automaticallyImplyLeading: false, // Remove back button
-        backgroundColor: const Color(0xFF1565C0), // Dark blue header
-        title: Row(
-          children: const [
-            Icon(Icons.person, color: Colors.white), // Profile icon
-            SizedBox(width: 8),
-            Text(
-              'Profile',
-              style: TextStyle(color: Colors.white), // Set text color to white
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _getProfileData(),
+      builder: (context, snapshot) {
+        final data = snapshot.data ?? {};
+        final stationName = data['firstName'] ?? '';
+
+
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            automaticallyImplyLeading: false, // Remove back button
+            backgroundColor: const Color(0xFF1565C0), // Dark blue header
+            title: Row(
+              children: const [
+                Icon(Icons.person, color: Colors.white), // Profile icon
+                SizedBox(width: 8),
+                Text(
+                  'Profile',
+                  style: TextStyle(color: Colors.white), // Set text color to white
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Profile Header
-            Container(
-              color: const Color(0xFF1565C0), // Dark blue background
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  const CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.white,
-                    child: Icon(Icons.person, size: 30, color: Color(0xFF1565C0)),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          'Dianna Souribio',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+          ),
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                // Profile Header
+                Container(
+                  color: const Color(0xFF1565C0), // Dark blue background
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 30,
+                        backgroundColor: Colors.white,
+                        child: Icon(Icons.person, size: 30, color: Color(0xFF1565C0)),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              stationName.isNotEmpty ? stationName : 'No Station Name',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Brgy. Duyan-duyan\nSanta Barbara, Iloilo, Philippines\n(+63) 912  345 6789',
-                          style: TextStyle(color: Colors.white, fontSize: 14),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 16),
+                // My Account Section
+                _buildSectionTitle('My Account'),
+                _buildListTile(Icons.security, 'Account & Security', context),
+                _buildListTile(Icons.location_on, 'My Addresses', context),
+                _buildListTile(Icons.account_balance_wallet, 'Bank Accounts/Cards', context),
+                const SizedBox(height: 16),
+                // Settings Section
+                _buildSectionTitle('Settings'),
+                _buildListTile(Icons.lock, 'Change Password', context),
+                _buildListTile(Icons.notifications, 'Notification Preferences', context),
+                _buildListTile(Icons.language, 'Language', context),
+                const SizedBox(height: 16),
+                // Support Section
+                _buildSectionTitle('Support'),
+                _buildListTile(Icons.help, 'Help Centre', context),
+                _buildListTile(Icons.policy, 'Policies', context),
+                _buildListTile(Icons.info, 'About', context),
+                _buildListTile(Icons.logout, 'Log Out', context),
+              ],
             ),
-            const SizedBox(height: 16),
-            // My Account Section
-            _buildSectionTitle('My Account'),
-            _buildListTile(Icons.security, 'Account & Security', context),
-            _buildListTile(Icons.location_on, 'My Addresses', context),
-            _buildListTile(Icons.account_balance_wallet, 'Bank Accounts/Cards', context),
-            const SizedBox(height: 16),
-            // Settings Section
-            _buildSectionTitle('Settings'),
-            _buildListTile(Icons.lock, 'Change Password', context),
-            _buildListTile(Icons.notifications, 'Notification Preferences', context),
-            _buildListTile(Icons.language, 'Language', context),
-            const SizedBox(height: 16),
-            // Support Section
-            _buildSectionTitle('Support'),
-            _buildListTile(Icons.help, 'Help Centre', context),
-            _buildListTile(Icons.policy, 'Policies', context),
-            _buildListTile(Icons.info, 'About', context),
-            _buildListTile(Icons.logout, 'Log Out', context),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
