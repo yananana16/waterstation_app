@@ -2165,6 +2165,7 @@ class _StationDetailsScreenState extends State<StationDetailsScreen> {
             onPressed: onOrderNow,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1565C0),
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),

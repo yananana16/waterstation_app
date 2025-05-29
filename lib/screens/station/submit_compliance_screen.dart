@@ -314,8 +314,6 @@ class _SubmitCompliancePageState extends State<SubmitCompliancePage> {
   @override
   Widget build(BuildContext context) {
     final docKeys = getFilteredDocumentKeys();
-    final isNew = membershipType == 'new';
-
     // Check if all required files are selected
     final allRequiredSelected = docKeys.every((key) => selectedFileNames[key] != null);
 

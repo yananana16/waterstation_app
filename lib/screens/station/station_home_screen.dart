@@ -725,7 +725,6 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
   bool isLoading = true;
 
   // Track which files are expanded (viewed)
-  final Set<int> _expandedIndexes = {};
 
   @override
   void initState() {
@@ -811,7 +810,6 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
     final extension = fileName.split('.').last.toLowerCase();
     final isImage = ['png', 'jpg', 'jpeg'].contains(extension);
     final isPdf = extension == 'pdf';
-    final isWord = extension == 'doc' || extension == 'docx';
 
     showDialog(
       context: context,
@@ -1118,36 +1116,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
   }
 
-  Widget _buildTopBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 32, left: 16, right: 16, bottom: 0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            'Order and Delivery',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.blue,
-            ),
-          ),
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications, color: Colors.blue),
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: const Icon(Icons.settings, color: Colors.blue),
-                onPressed: () {},
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildDateRow() {
     final now = DateTime.now();
