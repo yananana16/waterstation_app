@@ -1882,11 +1882,36 @@ class _ProductsScreenState extends State<ProductsScreen> {
   List<Map<String, dynamic>> _products = [];
   bool _loading = true;
 
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _typeController = TextEditingController();
-  final TextEditingController _priceController = TextEditingController();
-  final TextEditingController _stockController = TextEditingController();
+   // Controllers for each price field
+  final TextEditingController _roundPriceController = TextEditingController();
+  final TextEditingController _slimPriceController = TextEditingController();
+  final TextEditingController _emptyRoundPriceController = TextEditingController();
+  final TextEditingController _emptySlimPriceController = TextEditingController();
+  final TextEditingController _other1Controller = TextEditingController();
+  final TextEditingController _other1PriceController = TextEditingController();
+  final TextEditingController _other2Controller = TextEditingController();
+  final TextEditingController _other2PriceController = TextEditingController();
+  final TextEditingController _deliveryPriceController = TextEditingController();
 
+  // State for checkboxes and dropdowns
+  String _selectedWaterType = '';
+  String _selectedDelivery = '';
+  bool _offerRound = false;
+  bool _offerSlim = false;
+  bool _offerEmptyRound = false;
+  bool _offerEmptySlim = false;
+
+  final List<String> _waterTypes = [
+    'Purified',
+    'Mineral',
+    'Alkaline',
+    'Distilled',
+    'Other',
+  ];
+  final List<String> _deliveryOptions = [
+    'Available',
+    'Not Available',
+  ];
   @override
   void initState() {
     super.initState();
@@ -1948,16 +1973,45 @@ class _ProductsScreenState extends State<ProductsScreen> {
           .doc(stationOwnerDocId)
           .collection('products')
           .add({
-        'name': _nameController.text.trim(),
-        'type': _typeController.text.trim(),
-        'price': double.tryParse(_priceController.text.trim()) ?? 0.0,
-        'stock': int.tryParse(_stockController.text.trim()) ?? 0,
+        'waterType': _selectedWaterType,
+        'offers': {
+          'round': _offerRound ? double.tryParse(_roundPriceController.text) ?? 0 : null,
+          'slim': _offerSlim ? double.tryParse(_slimPriceController.text) ?? 0 : null,
+          'emptyRound': _offerEmptyRound ? double.tryParse(_emptyRoundPriceController.text) ?? 0 : null,
+          'emptySlim': _offerEmptySlim ? double.tryParse(_emptySlimPriceController.text) ?? 0 : null,
+          'other1': _other1Controller.text.isNotEmpty ? {
+            'label': _other1Controller.text,
+            'price': double.tryParse(_other1PriceController.text) ?? 0,
+          } : null,
+          'other2': _other2Controller.text.isNotEmpty ? {
+            'label': _other2Controller.text,
+            'price': double.tryParse(_other2PriceController.text) ?? 0,
+          } : null,
+        },
+        'delivery': {
+          'available': _selectedDelivery,
+          'price': double.tryParse(_deliveryPriceController.text) ?? 0,
+        },
         'createdAt': FieldValue.serverTimestamp(),
       });
-      _nameController.clear();
-      _typeController.clear();
-      _priceController.clear();
-      _stockController.clear();
+      // Clear all fields after adding
+      setState(() {
+        _selectedWaterType = '';
+        _selectedDelivery = '';
+        _offerRound = false;
+        _offerSlim = false;
+        _offerEmptyRound = false;
+        _offerEmptySlim = false;
+        _roundPriceController.clear();
+        _slimPriceController.clear();
+        _emptyRoundPriceController.clear();
+        _emptySlimPriceController.clear();
+        _other1Controller.clear();
+        _other1PriceController.clear();
+        _other2Controller.clear();
+        _other2PriceController.clear();
+        _deliveryPriceController.clear();
+      });
       await _fetchProducts();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1967,6 +2021,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
   }
 
+ 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1991,9 +2046,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                               child: ListTile(
                                 leading: const Icon(Icons.shopping_bag, color: Colors.blue),
-                                title: Text(product['name'] ?? ''),
+                                title: Text(product['name'] ?? product['waterType'] ?? ''),
                                 subtitle: Text(
-                                  'Type: ${product['type'] ?? ''}\nPrice: ₱${(product['price'] ?? 0).toString()}\nStock: ${product['stock'] ?? 0}',
+                                  'Type: ${product['type'] ?? product['waterType'] ?? ''}\n'
+                                  'Price: ₱${(product['price'] ?? 0).toString()}\n'
+                                  'Stock: ${product['stock'] ?? ''}',
                                 ),
                               ),
                             );
@@ -2006,58 +2063,239 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     title: const Text("Add Product", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
                     leading: const Icon(Icons.add, color: Colors.blue),
                     children: [
-                      TextField(
-                        controller: _nameController,
-                        decoration: const InputDecoration(
-                          labelText: "Product Name",
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.label),
+                      // Types of Water Dropdown
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0, left: 4),
+                          child: Text("Types of Water", style: TextStyle(fontWeight: FontWeight.w500, color: Colors.grey[700])),
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: _typeController,
+                      DropdownButtonFormField<String>(
+                        value: _selectedWaterType.isEmpty ? null : _selectedWaterType,
+                        items: _waterTypes
+                            .map((type) => DropdownMenuItem(value: type, child: Text(type)))
+                            .toList(),
+                        onChanged: (val) => setState(() => _selectedWaterType = val ?? ''),
                         decoration: const InputDecoration(
-                          labelText: "Type (e.g. Purified, Mineral)",
                           border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.category),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
+                        hint: const Text("Types of Water"),
                       ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: _priceController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: "Price",
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.attach_money),
-                        ),
+                      const SizedBox(height: 16),
+                      // Product Offer Section
+                      Row(
+                        children: [
+                          Expanded(child: Text("Product Offer:", style: TextStyle(fontWeight: FontWeight.w500))),
+                          Expanded(child: Text("Price:", style: TextStyle(fontWeight: FontWeight.w500))),
+                        ],
                       ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: _stockController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: "Stock",
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.inventory_2),
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text("Round"),
+                              value: _offerRound,
+                              onChanged: (val) => setState(() => _offerRound = val ?? false),
+                              controlAffinity: ListTileControlAffinity.leading,
+                            ),
+                          ),
+                          SizedBox(
+                            width: 100,
+                            child: TextField(
+                              controller: _roundPriceController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                prefixText: "PHP ",
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text("Slim"),
+                              value: _offerSlim,
+                              onChanged: (val) => setState(() => _offerSlim = val ?? false),
+                              controlAffinity: ListTileControlAffinity.leading,
+                            ),
+                          ),
+                          SizedBox(
+                            width: 100,
+                            child: TextField(
+                              controller: _slimPriceController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                prefixText: "PHP ",
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // Gallons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text("Empty Round Gallon"),
+                              value: _offerEmptyRound,
+                              onChanged: (val) => setState(() => _offerEmptyRound = val ?? false),
+                              controlAffinity: ListTileControlAffinity.leading,
+                            ),
+                          ),
+                          SizedBox(
+                            width: 100,
+                            child: TextField(
+                              controller: _emptyRoundPriceController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                prefixText: "PHP ",
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text("Empty Slim Gallon"),
+                              value: _offerEmptySlim,
+                              onChanged: (val) => setState(() => _offerEmptySlim = val ?? false),
+                              controlAffinity: ListTileControlAffinity.leading,
+                            ),
+                          ),
+                          SizedBox(
+                            width: 100,
+                            child: TextField(
+                              controller: _emptySlimPriceController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                prefixText: "PHP ",
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // Others
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _other1Controller,
+                              decoration: const InputDecoration(
+                                labelText: "Others: Please Specify",
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 100,
+                            child: TextField(
+                              controller: _other1PriceController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                prefixText: "PHP ",
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _other2Controller,
+                              decoration: const InputDecoration(
+                                labelText: "Please Specify",
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 100,
+                            child: TextField(
+                              controller: _other2PriceController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                prefixText: "PHP ",
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // Delivery Available
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedDelivery.isEmpty ? null : _selectedDelivery,
+                              items: _deliveryOptions
+                                  .map((opt) => DropdownMenuItem(value: opt, child: Text(opt)))
+                                  .toList(),
+                              onChanged: (val) => setState(() => _selectedDelivery = val ?? ''),
+                              decoration: const InputDecoration(
+                                labelText: "Delivery Available",
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 100,
+                            child: TextField(
+                              controller: _deliveryPriceController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: "Price",
+                                prefixText: "PHP ",
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton.icon(
+                        child: ElevatedButton(
                           onPressed: _addProduct,
-                          icon: const Icon(Icons.save),
-                          label: const Text("Save Product"),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(double.infinity, 40),
+                            backgroundColor: Colors.grey[300],
+                            foregroundColor: Colors.black,
+                            minimumSize: const Size(double.infinity, 48),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
+                          child: const Text("Register"),
                         ),
                       ),
                     ],
