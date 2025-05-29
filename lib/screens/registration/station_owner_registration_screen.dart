@@ -45,6 +45,7 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
 
   bool _isPasswordVisible = false; // Added for password visibility toggle
   bool _isConfirmPasswordVisible = false; // Added for confirm password visibility toggle
+  String _membershipType = 'new'; // Default to 'new'
 
   // Helper function to perform reverse geocoding using Nominatim
   Future<String?> _getAddressFromLatLng(LatLng location) async {
@@ -189,9 +190,6 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
       // Generate custom document ID
       String documentId = "station_owner_${DateTime.now().millisecondsSinceEpoch}";
 
-      final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      final String membershipType = args?['membership'] ?? 'new'; // Default to 'new' if not provided
-
       // Get address from coordinates using Nominatim
       String? address = await _getAddressFromLatLng(_selectedLocation!);
 
@@ -219,7 +217,7 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
         'userId': userCredential.user!.uid, // Link to Firebase Authentication user ID
         'createdAt': FieldValue.serverTimestamp(), // Add createdAt field
         'status': 'submitreq', // Add status field
-        'membership': membershipType, // Add membership field
+        'membership': _membershipType, // Use local state
       });
 
       // Add user to 'users' collection with role and president flags
@@ -332,9 +330,6 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
 
   @override
   Widget build(BuildContext context) {
-    final Map<String, dynamic>? args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    final String membershipType = args?['membership'] ?? 'new'; // Default to 'new' if not provided
-
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -346,7 +341,7 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
         elevation: 0, // Removed app bar shadow
       ),
       body: Container(
-        color: Colors.white, // Changed background color to white
+        color: Colors.white,
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: SingleChildScrollView(
@@ -407,6 +402,50 @@ class _StationOwnerRegistrationScreenState extends State<StationOwnerRegistratio
                 const SizedBox(height: 20),
 
                 _buildLocationButton(),
+
+                const SizedBox(height: 20),
+
+                // --- Membership Buttons ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _membershipType = 'new';
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _membershipType == 'new' ? Colors.blue : Colors.white,
+                          foregroundColor: _membershipType == 'new' ? Colors.white : Colors.blue,
+                          side: const BorderSide(color: Colors.blue),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text('New Member', style: TextStyle(fontSize: 16)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _membershipType = 'existing';
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _membershipType == 'existing' ? Colors.blue : Colors.white,
+                          foregroundColor: _membershipType == 'existing' ? Colors.white : Colors.blue,
+                          side: const BorderSide(color: Colors.blue),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text('Existing Member', style: TextStyle(fontSize: 16)),
+                      ),
+                    ),
+                  ],
+                ),
 
                 const SizedBox(height: 20),
 

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'registration/customer_registration_screen.dart';
-import 'registration/membership_confirmation_screen.dart';
+import 'registration/station_owner_registration_screen.dart'; // Add this import
 import 'login_screen.dart';
 
 class RegistrationScreen extends StatelessWidget {
@@ -15,7 +15,7 @@ class RegistrationScreen extends StatelessWidget {
     } else {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const MembershipConfirmationScreen()),
+        MaterialPageRoute(builder: (context) => const StationOwnerRegistrationScreen()), // Change here
       );
     }
   }
