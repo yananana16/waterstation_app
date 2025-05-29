@@ -963,10 +963,17 @@ class _MyCartScreenState extends State<MyCartScreen> {
             // Generate a custom OrderID
             final String orderId = 'ORD-${DateTime.now().millisecondsSinceEpoch}-${user.uid.substring(0, 5)}';
 
+            // Get stationOwnerId from lineItems if available
+            String? stationOwnerId;
+            if (lineItems.isNotEmpty && lineItems.first.containsKey('stationOwnerId')) {
+              stationOwnerId = lineItems.first['stationOwnerId'];
+            }
+
             final orderData = {
               'orderId': orderId,
               'customerId': user.uid,
               'products': lineItems,
+              'stationOwnerId': stationOwnerId,
               'status': 'Pending',
               'timestamp': FieldValue.serverTimestamp(),
               'totalPrice': totalPrice,
@@ -976,10 +983,6 @@ class _MyCartScreenState extends State<MyCartScreen> {
             await FirebaseFirestore.instance.collection('orders').doc(orderId).set(orderData);
 
             // Add order to each station owner's orders subcollection (group by stationOwnerId)
-            String? stationOwnerId;
-            if (lineItems.isNotEmpty && lineItems.first.containsKey('stationOwnerId')) {
-              stationOwnerId = lineItems.first['stationOwnerId'];
-            }
             if (stationOwnerId != null) {
               await FirebaseFirestore.instance
                   .collection('station_owners')
