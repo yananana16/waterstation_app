@@ -29,7 +29,7 @@ class _StationHomeScreenState extends State<StationHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        color: Colors.white, // Set the entire page background to white
+        color: Colors.white,
         child: _screens[_currentIndex],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -88,12 +88,16 @@ class _HomeScreenState extends State<HomeScreen> {
   double _dailySales = 0;
   bool _loadingDailySales = true;
 
+  String? _stationName;
+  bool _loadingStationName = true;
+
   @override
   void initState() {
     super.initState();
     _fetchMonthlyRevenue();
     _fetchTotalSales();
     _fetchDailySales();
+    _fetchStationName();
   }
 
   Future<void> _fetchMonthlyRevenue() async {
@@ -283,10 +287,33 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _fetchStationName() async {
+    try {
+      final user = firebase_auth.FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        setState(() {
+          _stationName = null;
+          _loadingStationName = false;
+        });
+        return;
+      }
+      final userProfile = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      setState(() {
+        _stationName = userProfile['stationName'] ?? '';
+        _loadingStationName = false;
+      });
+    } catch (e) {
+      setState(() {
+        _stationName = null;
+        _loadingStationName = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white, // Set the background color to white
+      color: Colors.white,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -294,18 +321,39 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // Top Row with Logo, "H2Go" Text, and Icons
             Padding(
-              padding: const EdgeInsets.only(top: 32.0), // <-- Add top margin here
+              padding: const EdgeInsets.only(top: 32.0),
               child: Center(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
                       children: [
-                        Image.asset('assets/logo.png', height: 70), // Adjusted logo size
-                        const SizedBox(width: 15), // Increased spacing
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.blue.withOpacity(0.08),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Image.asset('assets/logo.png', height: 56),
+                          ),
+                        ),
+                        const SizedBox(width: 15),
                         const Text(
                           'H2OGo',
-                          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.blue), // Slightly larger text
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                            letterSpacing: 1.2,
+                          ),
                         ),
                       ],
                     ),
@@ -313,15 +361,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         IconButton(
                           icon: const Icon(Icons.notifications, color: Colors.blue),
-                          onPressed: () {
-                            // Add notification functionality
-                          },
+                          onPressed: () {},
                         ),
                         IconButton(
                           icon: const Icon(Icons.settings, color: Colors.blue),
-                          onPressed: () {
-                            // Add settings functionality
-                          },
+                          onPressed: () {},
                         ),
                         IconButton(
                           icon: const Icon(Icons.person, color: Colors.blue),
@@ -338,55 +382,75 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 20), // Adjusted spacing below the top row
+            const SizedBox(height: 24),
 
-            // Logo and Welcome Section
+            // Welcome Section with Card
             Center(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal, // Allow horizontal scrolling to prevent overflow
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Image.asset('assets/undraw_home-screen_63eq-removebg-preview 1.png', height: 250), // Illustration
-                    const SizedBox(width: 20), // Spacing between image and text
-                    Container(
-                      color: Colors.white, // White background for better visibility
-                      padding: const EdgeInsets.all(8.0), // Padding around the text
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start, // Align text to the start
+              child: Card(
+                elevation: 6,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                color: Colors.white,
+                shadowColor: Colors.blue.withOpacity(0.10),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 12),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.asset(
+                          'assets/undraw_home-screen_63eq-removebg-preview 1.png',
+                          height: 110,
+                          width: 110,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: const [
                           Text(
                             'Welcome!',
-                            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.blue),
+                            style: TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
                           ),
-                          SizedBox(height: 5), // Spacing between "Welcome!" and "User"
+                          SizedBox(height: 5),
                           Text(
                             'User',
                             style: TextStyle(fontSize: 20, color: Colors.blue),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             // Card for Daily Sales and Monthly Revenue
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              color: Colors.blue.shade50, // Updated background color
+              elevation: 5,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              color: Colors.blue.shade50,
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(18.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Quench-O Purified Drinking Water',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
+                    _loadingStationName
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(
+                            _stationName ?? '',
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -401,19 +465,21 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 18),
                     Row(
                       children: [
                         Expanded(
-                          child: Column(
-                            children: [
-                              const Text('Daily Sales', style: TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 8),
-                              Container(
-                                height: 100,
-                                color: Colors.blue.shade100, // Placeholder for graph
-                                child: Center(
-                                  child: _loadingDailySales
+                          child: Card(
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            color: Colors.white,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16.0),
+                              child: Column(
+                                children: [
+                                  const Text('Daily Sales', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 8),
+                                  _loadingDailySales
                                       ? const CircularProgressIndicator()
                                       : Text(
                                           '₱${_dailySales.toStringAsFixed(2)}',
@@ -423,22 +489,24 @@ class _HomeScreenState extends State<HomeScreen> {
                                             color: Colors.blue,
                                           ),
                                         ),
-                                ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: Column(
-                            children: [
-                              const Text('Monthly Revenue', style: TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 8),
-                              Container(
-                                height: 100,
-                                color: Colors.blue.shade100, // Placeholder for graph
-                                child: Center(
-                                  child: _loadingRevenue
+                          child: Card(
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            color: Colors.white,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16.0),
+                              child: Column(
+                                children: [
+                                  const Text('Monthly Revenue', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 8),
+                                  _loadingRevenue
                                       ? const CircularProgressIndicator()
                                       : Text(
                                           '₱${_monthlyRevenue.toStringAsFixed(2)}',
@@ -448,9 +516,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                             color: Colors.blue,
                                           ),
                                         ),
-                                ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ],
@@ -459,16 +527,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+
             // --- Total Sales Section ---
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               color: Colors.blue.shade50,
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: Row(
                   children: [
-                    const Icon(Icons.attach_money, color: Colors.blue, size: 32),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade100,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.all(8),
+                      child: const Icon(Icons.attach_money, color: Colors.blue, size: 32),
+                    ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: _loadingTotalSales
@@ -492,10 +569,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             // Reminders Section
-            const Text('Reminders', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Row(
+                children: const [
+                  Icon(Icons.notifications_active, color: Colors.blue, size: 26),
+                  SizedBox(width: 8),
+                  Text('Reminders', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
             const SizedBox(height: 10),
             _buildReminderCard(Icons.warning, 'Time to backwash! You’ve filled 100-200 containers.'),
           ],
@@ -506,14 +592,28 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildReminderCard(IconData icon, String text) {
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      color: Colors.orange.shade50,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(18.0),
         child: Row(
           children: [
-            Icon(icon, size: 40, color: Colors.blue.shade700),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.orange.shade100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.all(8),
+              child: Icon(icon, size: 32, color: Colors.orange.shade700),
+            ),
             const SizedBox(width: 16),
-            Expanded(child: Text(text, style: const TextStyle(fontSize: 16))),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(fontSize: 16, color: Colors.black87, fontWeight: FontWeight.w500),
+              ),
+            ),
           ],
         ),
       ),
@@ -687,6 +787,82 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
     return "Passed";
   }
 
+  // New: Show file in a modal dialog
+  void _showFileModal(BuildContext context, String fileUrl, String fileName) {
+    final extension = fileName.split('.').last.toLowerCase();
+    final isImage = ['png', 'jpg', 'jpeg'].contains(extension);
+    final isPdf = extension == 'pdf';
+    final isWord = extension == 'doc' || extension == 'docx';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: isImage
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(fileName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      Image.network(
+                        fileUrl,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Text('Failed to load image'),
+                            ),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Close'),
+                      ),
+                    ],
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(fileName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 16),
+                      Icon(
+                        isPdf ? Icons.picture_as_pdf : Icons.description,
+                        color: isPdf ? Colors.red : Colors.blue,
+                        size: 48,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(isPdf ? 'PDF Document' : 'Word Document'),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.open_in_new),
+                        label: const Text('Open File'),
+                        onPressed: () async {
+                          if (await canLaunchUrl(Uri.parse(fileUrl))) {
+                            await launchUrl(Uri.parse(fileUrl), mode: LaunchMode.externalApplication);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Could not open file')),
+                            );
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Close'),
+                      ),
+                    ],
+                  ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -762,13 +938,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
                                         const SizedBox(height: 8),
                                         ElevatedButton(
                                           onPressed: () {
-                                            setState(() {
-                                              if (_expandedIndexes.contains(index)) {
-                                                _expandedIndexes.remove(index);
-                                              } else {
-                                                _expandedIndexes.add(index);
-                                              }
-                                            });
+                                            _showFileModal(context, fileUrl, file.name);
                                           },
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: Colors.white,
@@ -779,53 +949,8 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
                                               side: const BorderSide(color: Colors.blue),
                                             ),
                                           ),
-                                          child: Text(
-                                            _expandedIndexes.contains(index) ? 'Hide File' : 'View File',
-                                            style: const TextStyle(color: Colors.blue),
-                                          ),
+                                          child: const Text('View File', style: TextStyle(color: Colors.blue)),
                                         ),
-                                        if (_expandedIndexes.contains(index)) ...[
-                                          const SizedBox(height: 8),
-                                          if (isImage)
-                                            Image.network(
-                                              fileUrl,
-                                              fit: BoxFit.contain,
-                                              errorBuilder: (context, error, stackTrace) =>
-                                                  const Padding(
-                                                    padding: EdgeInsets.all(16.0),
-                                                    child: Text('Failed to load image'),
-                                                  ),
-                                            )
-                                          else if (isPdf || isWord)
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  isPdf ? Icons.picture_as_pdf : Icons.description,
-                                                  color: isPdf ? Colors.red : Colors.blue,
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Text(
-                                                  isPdf ? 'PDF Document' : 'Word Document',
-                                                  style: const TextStyle(fontSize: 14),
-                                                ),
-                                                const Spacer(),
-                                                IconButton(
-                                                  icon: const Icon(Icons.open_in_new, color: Colors.blue),
-                                                  onPressed: () async {
-                                                    if (await canLaunchUrl(Uri.parse(fileUrl))) {
-                                                      await launchUrl(Uri.parse(fileUrl), mode: LaunchMode.externalApplication);
-                                                    } else {
-                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                        const SnackBar(content: Text('Could not open file')),
-                                                      );
-                                                    }
-                                                  },
-                                                ),
-                                              ],
-                                            )
-                                          else
-                                            const Text('Unsupported file type', style: TextStyle(color: Colors.red)),
-                                        ],
                                       ],
                                     ),
                                   ),
@@ -2501,7 +2626,6 @@ class _SalesScreenState extends State<SalesScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back, color: Colors.black),
-                   
                     onPressed: () => Navigator.pop(context),
                   ),
                   const SizedBox(width: 4),
