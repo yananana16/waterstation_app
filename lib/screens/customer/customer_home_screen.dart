@@ -417,6 +417,7 @@ class HomeScreen extends StatelessWidget {
                                       onPressed: () {},
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: const Color(0xFF1565C0),
+                                        foregroundColor: Colors.white,
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(20),
                                         ),
@@ -643,6 +644,7 @@ class HomeScreen extends StatelessWidget {
                                     onPressed: () {},
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF1565C0),
+                                      foregroundColor: Colors.white,
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(20),
                                       ),
@@ -730,6 +732,7 @@ class HomeScreen extends StatelessWidget {
                                           label: const Text("Order"),
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: const Color(0xFF1565C0),
+                                            foregroundColor: Colors.white,
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(20),
                                             ),
@@ -856,16 +859,6 @@ class _MyCartScreenState extends State<MyCartScreen> {
     return grouped;
   }
 
-  double _calculateTotal(List<QueryDocumentSnapshot> docs) {
-    double sum = 0;
-    for (var doc in docs) {
-      final data = doc.data() as Map<String, dynamic>;
-      final price = (data['price'] ?? 0) as num;
-      final quantity = (data['quantity'] ?? 1) as num;
-      sum += price * quantity;
-    }
-    return sum;
-  }
 
   double _calculateSelectedTotal(List<QueryDocumentSnapshot> docs, Set<String> selectedIds) {
     double sum = 0;
@@ -1434,15 +1427,6 @@ class _MyCartScreenState extends State<MyCartScreen> {
   }
 }
 
-// Helper enum for checkbox state (move inside the class for clarity)
-CheckboxState _getStationCheckboxState(List<Map<String, dynamic>> items, Set<String> selectedIds) {
-  final ids = items.map((item) => item['cartDocId'] as String).toList();
-  final selectedCount = ids.where((id) => selectedIds.contains(id)).length;
-  if (selectedCount == 0) return CheckboxState.none;
-  if (selectedCount == ids.length) return CheckboxState.all;
-  return CheckboxState.partial;
-}
-
 // Helper enum for checkbox state
 enum CheckboxState { none, partial, all }
 
@@ -1471,9 +1455,7 @@ class NotificationsScreen extends StatelessWidget {
     return FutureBuilder<String>(
       future: _getCustomerName(),
       builder: (context, snapshot) {
-        String displayName = 'Customer';
         if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
-          displayName = snapshot.data!;
         }
 
         return Scaffold(
@@ -1573,17 +1555,7 @@ class _StationDetailsScreenState extends State<StationDetailsScreen> {
   String? _dynamicAddress;
   final Map<String, int> _offerQuantities = {};
 
-  // Add: Fetch compliance statuses for this station
-  Future<Map<String, dynamic>?> _fetchComplianceStatuses() async {
-    final doc = await FirebaseFirestore.instance
-        .collection('compliance_uploads')
-        .doc(widget.stationOwnerId)
-        .get();
-    if (doc.exists) {
-      return doc.data();
-    }
-    return null;
-  }
+  // (Removed unused _fetchComplianceStatuses method)
 
   Future<void> _payWithPayMongo({
     required String name,
@@ -1744,126 +1716,22 @@ class _StationDetailsScreenState extends State<StationDetailsScreen> {
       });
     }
   }
-
-  Future<void> _placeOrder(BuildContext context, String productOffer, String stationOwnerId) async {
-    try {
-      final firebase_auth.FirebaseAuth auth = firebase_auth.FirebaseAuth.instance;
-      final firebase_auth.User? user = auth.currentUser;
-
-      if (user != null) {
-        // Generate a custom OrderID
-        final String orderId = 'ORD-${DateTime.now().millisecondsSinceEpoch}-${user.uid.substring(0, 5)}';
-
-        final orderData = {
-          'orderId': orderId, // Use the custom OrderID
-          'customerId': user.uid,
-          'productOffer': productOffer,
-          'status': 'Pending',
-          'timestamp': FieldValue.serverTimestamp(),
-          'stationOwnerId': stationOwnerId,
-        };
-
-        // Add order to the global orders collection
-        await FirebaseFirestore.instance.collection('orders').doc(orderId).set(orderData);
-
-        // Add order to the station owner's orders subcollection
-        await FirebaseFirestore.instance
-            .collection('station_owners')
-            .doc(stationOwnerId)
-            .collection('orders')
-            .doc(orderId)
-            .set(orderData);
-
-        // Show loading indicator
-        showDialog(
-          context: context,
-          barrierDismissible: false, // Prevent dismissing the dialog
-          builder: (context) => WillPopScope(
-            onWillPop: () async => false, // Disable back button
-            child: AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  CircularProgressIndicator(color: Colors.green), // Loading indicator
-                  SizedBox(height: 20),
-                  Text(
-                    "Processing Order...",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-
-        // Wait for 1 second, then close the dialog and navigate back
-        await Future.delayed(const Duration(seconds: 1));
-        Navigator.of(context).pop(); // Close the dialog
-        Navigator.of(context).pop(); // Go back to the homepage
-
-        // Show success dialog
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.check_circle,
-                  color: Colors.green,
-                  size: 60,
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  "Order Placed Successfully!",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  "Thank you for your order. You will receive a notification once it is processed.",
-                  style: TextStyle(fontSize: 14, color: Colors.black54),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop(); // Close the dialog
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1565C0), // Dark blue button
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text(
-                    "OK",
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User not logged in.')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to place order: $e')),
-      );
-    }
+  // Add for compliance files dialog
+  void _showComplianceFilesDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.all(24),
+        child: SizedBox(
+          width: 400,
+          height: 500,
+          child: ComplianceFilesDialog(stationOwnerDocId: widget.stationOwnerId),
+        ),
+      ),
+    );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -1944,113 +1812,7 @@ class _StationDetailsScreenState extends State<StationDetailsScreen> {
                       const SizedBox(height: 16),
 
                       // --- Compliance Status Card ---
-                      FutureBuilder<Map<String, dynamic>?>(
-                        future: _fetchComplianceStatuses(),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8),
-                              child: Center(child: CircularProgressIndicator()),
-                            );
-                          }
-                          final data = snapshot.data;
-                          if (data == null) {
-                            return const SizedBox(); // No compliance data
-                          }
-                          // Only show the requested statuses
-                          final statusFields = [
-                            {'label': 'Finished Bacteriological', 'key': 'finished_bacteriological_status'},
-                            {'label': 'Finished Physical Chemical', 'key': 'finished_physical_chemical_status'},
-                            {'label': 'Sanitary Permit', 'key': 'sanitary_permit_status'},
-                            {'label': 'Source Bacteriological', 'key': 'source_bacteriological_status'},
-                            {'label': 'Source Physical Chemical', 'key': 'source_physical_chemical_status'},
-                          ];
-                          return Card(
-                            elevation: 3,
-                            margin: const EdgeInsets.only(bottom: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            child: Padding(
-                              padding: const EdgeInsets.all(14.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Compliance Status',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: Color(0xFF1565C0),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  ...statusFields.map((f) {
-                                    final status = data[f['key']]?.toString() ?? 'N/A';
-                                    Color color;
-                                    if (status.toLowerCase() == 'passed') {
-                                      color = Colors.green;
-                                    } else if (status.toLowerCase() == 'pending') {
-                                      color = Colors.orange;
-                                    } else if (status.toLowerCase() == 'failed') {
-                                      color = Colors.red;
-                                    } else {
-                                      color = Colors.grey;
-                                    }
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 2.0),
-                                      child: Row(
-                                        children: [
-                                          Expanded(child: Text(f['label']!, style: const TextStyle(fontSize: 14))),
-                                          Text(
-                                            status[0].toUpperCase() + status.substring(1),
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: color,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          ElevatedButton(
-                                            onPressed: () {
-                                              // Show a dialog with more info or a placeholder
-                                              showDialog(
-                                                context: context,
-                                                builder: (context) => AlertDialog(
-                                                  title: Text('${f['label']} Document'),
-                                                  content: Text(
-                                                    'No document preview available.\n\nStatus: ${status[0].toUpperCase() + status.substring(1)}',
-                                                  ),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () => Navigator.pop(context),
-                                                      child: const Text('Close'),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.blue.shade50,
-                                              foregroundColor: Colors.blue,
-                                              minimumSize: const Size(0, 32),
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              elevation: 0,
-                                              side: const BorderSide(color: Color(0xFF1565C0)),
-                                            ),
-                                            child: const Text('View', style: TextStyle(fontSize: 13)),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                      
                       // --- End Compliance Status Card ---
 
                       const Text(
@@ -2340,6 +2102,12 @@ class _StationDetailsScreenState extends State<StationDetailsScreen> {
                     // Navigate to settings screen
                   },
                 ),
+                // Add View Files button
+                IconButton(
+                  icon: const Icon(Icons.folder, color: Colors.blue),
+                  tooltip: "View Files",
+                  onPressed: _showComplianceFilesDialog,
+                ),
               ],
             ),
           ),
@@ -2502,101 +2270,209 @@ class _StationDetailsScreenState extends State<StationDetailsScreen> {
     }
   }
 
-  String _extractCategoryLabel(String fileName, String docId) {
-    final prefix = '${docId}_';
-    if (fileName.startsWith(prefix)) {
-      final rest = fileName.substring(prefix.length);
-      final category = rest.split('.').first;
-      return category
-          .replaceAll('_', ' ')
-          .split(' ')
-          .map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1)}' : '')
-          .join(' ');
+
+}
+
+class ComplianceFilesDialog extends StatefulWidget {
+  final String stationOwnerDocId;
+  const ComplianceFilesDialog({super.key, required this.stationOwnerDocId});
+
+  @override
+  State<ComplianceFilesDialog> createState() => _ComplianceFilesDialogState();
+}
+
+class _ComplianceFilesDialogState extends State<ComplianceFilesDialog> {
+  List<dynamic> uploadedFiles = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchComplianceFiles(widget.stationOwnerDocId);
+  }
+
+  Future<void> fetchComplianceFiles(String docId) async {
+    try {
+      final response = await Supabase.instance.client.storage
+          .from('compliance_docs')
+          .list(path: 'uploads/$docId');
+      setState(() {
+        uploadedFiles = response;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
     }
-    return 'Unknown Category';
   }
 
-  // Dummy status extraction for demonstration
-  String _extractStatus(String fileName) {
-    return "Passed";
+  String _getDisplayCategory(String fileName) {
+    String lowerCaseFileName = fileName.toLowerCase();
+    if (lowerCaseFileName.contains('business') || lowerCaseFileName.contains('mayor')) {
+      return 'Business Permit';
+    } else if (lowerCaseFileName.contains('sanitary')) {
+      return 'Sanitary Permit';
+    } else if (lowerCaseFileName.contains('association')) {
+      return 'Certificate of Association';
+    } else if (lowerCaseFileName.contains('finished') && lowerCaseFileName.contains('bacteriological')) {
+      return 'Finished Bacteriological';
+    } else if (lowerCaseFileName.contains('source') && lowerCaseFileName.contains('bacteriological')) {
+      return 'Source Bacteriological';
+    } else if (lowerCaseFileName.contains('finished') && lowerCaseFileName.contains('physical')) {
+      return 'Finished Physical';
+    }
+      else if (lowerCaseFileName.contains('source') && lowerCaseFileName.contains('physical')) {
+      return 'Source Bacteriological';
+    }
+    // Fallback: Clean up the filename a bit by removing extension and replacing underscores
+    String nameWithoutExtension = fileName.split('.').first;
+    nameWithoutExtension = nameWithoutExtension.replaceAll('_', ' ').replaceAll('-', ' ');
+    // Capitalize first letter of each word
+    return nameWithoutExtension.split(' ').map((word) {
+      if (word.isEmpty) return '';
+      return word[0].toUpperCase() + word.substring(1);
+    }).join(' ');
   }
 
-  // Show file in a modal dialog
-  void _showFileModal(BuildContext context, String fileUrl, String fileName) {
-    final extension = fileName.split('.').last.toLowerCase();
-    final isImage = ['png', 'jpg', 'jpeg'].contains(extension);
-    final isPdf = extension == 'pdf';
-    final isWord = extension == 'doc' || extension == 'docx';
-
+  void _showFileDialog(dynamic file, String fileUrl, bool isImage, bool isPdf, bool isWord) {
     showDialog(
       context: context,
       builder: (context) {
         return Dialog(
-          insetPadding: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: isImage
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(fileName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 12),
-                      Image.network(
-                        fileUrl,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Text('Failed to load image'),
-                            ),
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Close'),
-                      ),
-                    ],
-                  )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(fileName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 16),
-                      Icon(
-                        isPdf ? Icons.picture_as_pdf : Icons.description,
-                        color: isPdf ? Colors.red : Colors.blue,
-                        size: 48,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(isPdf ? 'PDF Document' : 'Word Document'),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.open_in_new),
-                        label: const Text('Open File'),
-                        onPressed: () async {
-                          if (await canLaunchUrl(Uri.parse(fileUrl))) {
-                            await launchUrl(Uri.parse(fileUrl), mode: LaunchMode.externalApplication);
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Could not open file')),
-                            );
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Close'),
-                      ),
-                    ],
+          backgroundColor: Colors.white,
+          insetPadding: const EdgeInsets.all(24),
+          child: Container(
+            width: 400,
+            height: 500,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: Center(
+                    child: isImage
+                        ? Image.network(
+                            fileUrl,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: Text('Failed to load image'),
+                                ),
+                          )
+                        : isPdf
+                            ? Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.picture_as_pdf, color: Colors.red, size: 64),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.open_in_new),
+                                    label: const Text('Open PDF'),
+                                    onPressed: () async {
+                                      if (await canLaunchUrl(Uri.parse(fileUrl))) {
+                                        await launchUrl(Uri.parse(fileUrl), mode: LaunchMode.externalApplication);
+                                      } else {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Could not open file')),
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ],
+                              )
+                            : isWord
+                                ? Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.description, color: Colors.blue, size: 64),
+                                      const SizedBox(height: 16),
+                                      ElevatedButton.icon(
+                                        icon: const Icon(Icons.open_in_new),
+                                        label: const Text('Open Document'),
+                                        onPressed: () async {
+                                          if (await canLaunchUrl(Uri.parse(fileUrl))) {
+                                            await launchUrl(Uri.parse(fileUrl), mode: LaunchMode.externalApplication);
+                                          } else {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Could not open file')),
+                                            );
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  )
+                                : const Text('Unsupported file type', style: TextStyle(color: Colors.red)),
                   ),
+                ),
+              ],
+            ),
           ),
         );
       },
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : uploadedFiles.isEmpty
+            ? const Center(child: Text('No uploaded compliance files found.'))
+            : ListView.builder(
+                itemCount: uploadedFiles.length,
+                itemBuilder: (context, index) {
+                  final file = uploadedFiles[index];
+                  final fileUrl = Supabase.instance.client.storage
+                      .from('compliance_docs')
+                      .getPublicUrl('uploads/${widget.stationOwnerDocId}/${file.name}');
+                  final extension = file.name.split('.').last.toLowerCase();
+                  final isImage = ['png', 'jpg', 'jpeg'].contains(extension);
+                  final isPdf = extension == 'pdf';
+                  final isWord = extension == 'doc' || extension == 'docx';
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                    child: ListTile(
+                      leading: isImage
+                          ? const Icon(Icons.image, color: Colors.blue)
+                          : isPdf
+                              ? const Icon(Icons.picture_as_pdf, color: Colors.red)
+                              : isWord
+                                  ? const Icon(Icons.description, color: Colors.blue)
+                              : const Icon(Icons.insert_drive_file, color: Colors.grey), // Default icon
+                      title: Text(_getDisplayCategory(file.name), style: const TextStyle(fontSize: 14)),
+                      trailing: ElevatedButton(
+                        onPressed: () {
+                          _showFileDialog(file, fileUrl, isImage, isPdf, isWord);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.blue,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: const BorderSide(color: Colors.blue),
+                          ),
+                        ),
+                        child: const Text('View', style: TextStyle(color: Colors.blue)),
+                      ),
+                    ),
+                  );
+                },
+              );
+  }
 }
+
 
 class StationsScreen extends StatefulWidget {
   StationsScreen({super.key});
@@ -2743,9 +2619,7 @@ class _StationsScreenState extends State<StationsScreen> {
     return FutureBuilder<String>(
       future: _getCustomerName(),
       builder: (context, snapshot) {
-        String displayName = 'Customer';
         if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
-          displayName = snapshot.data!;
         }
 
         return Scaffold(
@@ -2866,7 +2740,7 @@ class _StationsScreenState extends State<StationsScreen> {
                             final station = filteredStations[index];
                             final ownerFirstName = station['firstName'] ?? '';
                             final ownerLastName = station['lastName'] ?? '';
-                            final ownerName = (ownerFirstName + ' ' + ownerLastName).trim();
+                            (ownerFirstName + ' ' + ownerLastName).trim();
                             return Card(
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
@@ -2953,6 +2827,7 @@ class _StationsScreenState extends State<StationsScreen> {
                                           label: const Text("Order"),
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: const Color(0xFF1565C0),
+                                            foregroundColor: Colors.white,
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(20),
                                             ),
@@ -3022,7 +2897,7 @@ class _StationsScreenState extends State<StationsScreen> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.shopping_cart, color: Colors.black),
-                      onPressed: () {
+                      onPressed: () { 
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (context) => const MyCartScreen()),

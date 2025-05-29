@@ -904,12 +904,6 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
                                 final fileUrl = Supabase.instance.client.storage
                                     .from('compliance_docs')
                                     .getPublicUrl('uploads/$stationOwnerId/${file.name}');
-
-                                final extension = file.name.split('.').last.toLowerCase();
-                                final isImage = ['png', 'jpg', 'jpeg'].contains(extension);
-                                final isPdf = extension == 'pdf';
-                                final isWord = extension == 'doc' || extension == 'docx';
-
                                 final categoryLabel = _extractCategoryLabel(file.name, stationOwnerId!);
                                 final status = _extractStatus(file.name);
 
