@@ -1652,6 +1652,7 @@ class _StationDetailsScreenState extends State<StationDetailsScreen> {
               'stationOwnerId': widget.stationOwnerId,
               'quantity': quantity,
               'price': price,
+              'totalPrice': price * quantity, // Add this line
             };
 
             // Add order to the global orders collection
@@ -2949,6 +2950,7 @@ class OrdersScreen extends StatelessWidget {
         'orderId': doc.id,
         'station': data['stationOwnerId'] ?? 'Unknown Station',
         'productOffer': data['productOffer'] ?? 'Unknown Product',
+        'totalPrice': data['totalPrice'] ?? 0.0,
         'status': data['status'] ?? 'Unknown Status',
         'timestamp': data['timestamp']?.toDate() ?? DateTime.now(),
       };
@@ -3120,6 +3122,19 @@ class OrdersScreen extends StatelessWidget {
                                           Text(
                                             'Date: $formattedDate',
                                             style: const TextStyle(color: Colors.black54, fontSize: 13),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.monetization_on, size: 18, color: Colors.grey),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              'Total: ₱${order['totalPrice']?.toStringAsFixed(2) ?? '0.00'}',
+                                              style: const TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold),
+                                            ),
                                           ),
                                         ],
                                       ),
