@@ -297,11 +297,24 @@ class _HomeScreenState extends State<HomeScreen> {
         });
         return;
       }
-      final userProfile = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      setState(() {
-        _stationName = userProfile['stationName'] ?? '';
-        _loadingStationName = false;
-      });
+      // Get the station owner's document
+      final query = await FirebaseFirestore.instance
+          .collection('station_owners')
+          .where('userId', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+      if (query.docs.isNotEmpty) {
+        final stationOwnerDoc = query.docs.first;
+        setState(() {
+          _stationName = stationOwnerDoc['stationName'] ?? '';
+          _loadingStationName = false;
+        });
+      } else {
+        setState(() {
+          _stationName = null;
+          _loadingStationName = false;
+        });
+      }
     } catch (e) {
       setState(() {
         _stationName = null;
@@ -408,8 +421,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(width: 20),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text(
+                        children: [
+                          const Text(
                             'Welcome!',
                             style: TextStyle(
                               fontSize: 26,
@@ -417,11 +430,17 @@ class _HomeScreenState extends State<HomeScreen> {
                               color: Colors.blue,
                             ),
                           ),
-                          SizedBox(height: 5),
-                          Text(
-                            'User',
-                            style: TextStyle(fontSize: 20, color: Colors.blue),
-                          ),
+                          const SizedBox(height: 5),
+                          _loadingStationName
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : Text(
+                                  'Owner',
+                                  style: const TextStyle(fontSize: 20, color: Colors.blue),
+                                ),
                         ],
                       ),
                     ],
@@ -1882,11 +1901,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
   List<Map<String, dynamic>> _products = [];
   bool _loading = true;
 
-   // Controllers for each price field
+  // Controllers for each price field
   final TextEditingController _roundPriceController = TextEditingController();
   final TextEditingController _slimPriceController = TextEditingController();
-  final TextEditingController _emptyRoundPriceController = TextEditingController();
-  final TextEditingController _emptySlimPriceController = TextEditingController();
   final TextEditingController _other1Controller = TextEditingController();
   final TextEditingController _other1PriceController = TextEditingController();
   final TextEditingController _other2Controller = TextEditingController();
@@ -1898,8 +1915,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
   String _selectedDelivery = '';
   bool _offerRound = false;
   bool _offerSlim = false;
-  bool _offerEmptyRound = false;
-  bool _offerEmptySlim = false;
 
   final List<String> _waterTypes = [
     'Purified',
@@ -1977,8 +1992,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
         'offers': {
           'round': _offerRound ? double.tryParse(_roundPriceController.text) ?? 0 : null,
           'slim': _offerSlim ? double.tryParse(_slimPriceController.text) ?? 0 : null,
-          'emptyRound': _offerEmptyRound ? double.tryParse(_emptyRoundPriceController.text) ?? 0 : null,
-          'emptySlim': _offerEmptySlim ? double.tryParse(_emptySlimPriceController.text) ?? 0 : null,
           'other1': _other1Controller.text.isNotEmpty ? {
             'label': _other1Controller.text,
             'price': double.tryParse(_other1PriceController.text) ?? 0,
@@ -2000,12 +2013,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
         _selectedDelivery = '';
         _offerRound = false;
         _offerSlim = false;
-        _offerEmptyRound = false;
-        _offerEmptySlim = false;
         _roundPriceController.clear();
         _slimPriceController.clear();
-        _emptyRoundPriceController.clear();
-        _emptySlimPriceController.clear();
         _other1Controller.clear();
         _other1PriceController.clear();
         _other2Controller.clear();
@@ -2013,6 +2022,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         _deliveryPriceController.clear();
       });
       await _fetchProducts();
+      setState(() {}); // Ensure UI refreshes after fetching products
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Product added!')),
@@ -2021,7 +2031,54 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
   }
 
- 
+  Future<void> _deleteProduct(String productId) async {
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final query = await FirebaseFirestore.instance
+        .collection('station_owners')
+        .where('userId', isEqualTo: user.uid)
+        .limit(1)
+        .get();
+    if (query.docs.isNotEmpty) {
+      final stationOwnerDocId = query.docs.first.id;
+      await FirebaseFirestore.instance
+          .collection('station_owners')
+          .doc(stationOwnerDocId)
+          .collection('products')
+          .doc(productId)
+          .delete();
+      await _fetchProducts();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Product removed!')),
+        );
+      }
+    }
+  }
+
+  void _confirmDeleteProduct(String productId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Product'),
+        content: const Text('Are you sure you want to remove this product?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteProduct(productId);
+            },
+            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2041,16 +2098,47 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           itemCount: _products.length,
                           itemBuilder: (context, index) {
                             final product = _products[index];
+                            final offers = product['offers'] ?? {};
+                            final delivery = product['delivery'] ?? {};
+                            List<String> offerLines = [];
+                            if (offers['round'] != null) {
+                              offerLines.add('Round: ₱${offers['round']}');
+                            }
+                            if (offers['slim'] != null) {
+                              offerLines.add('Slim: ₱${offers['slim']}');
+                            }
+                            if (offers['other1'] != null && offers['other1']['label'] != null) {
+                              offerLines.add('${offers['other1']['label']}: ₱${offers['other1']['price']}');
+                            }
+                            if (offers['other2'] != null && offers['other2']['label'] != null) {
+                              offerLines.add('${offers['other2']['label']}: ₱${offers['other2']['price']}');
+                            }
+                            final deliveryLine = delivery.isNotEmpty
+                                ? 'Delivery: ${delivery['available'] ?? 'N/A'}'
+                                  '${delivery['price'] != null ? ' (₱${delivery['price']})' : ''}'
+                                : '';
                             return Card(
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                               child: ListTile(
                                 leading: const Icon(Icons.shopping_bag, color: Colors.blue),
-                                title: Text(product['name'] ?? product['waterType'] ?? ''),
-                                subtitle: Text(
-                                  'Type: ${product['type'] ?? product['waterType'] ?? ''}\n'
-                                  'Price: ₱${(product['price'] ?? 0).toString()}\n'
-                                  'Stock: ${product['stock'] ?? ''}',
+                                title: Text(product['waterType'] ?? ''),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (offerLines.isNotEmpty)
+                                      ...offerLines.map((line) => Text(line)),
+                                    if (deliveryLine.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4.0),
+                                        child: Text(deliveryLine),
+                                      ),
+                                  ],
+                                ),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () => _confirmDeleteProduct(product['id']),
+                                  tooltip: 'Remove Product',
                                 ),
                               ),
                             );
@@ -2131,57 +2219,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             width: 100,
                             child: TextField(
                               controller: _slimPriceController,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                prefixText: "PHP ",
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      // Gallons
-                      Row(
-                        children: [
-                          Expanded(
-                            child: CheckboxListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: const Text("Empty Round Gallon"),
-                              value: _offerEmptyRound,
-                              onChanged: (val) => setState(() => _offerEmptyRound = val ?? false),
-                              controlAffinity: ListTileControlAffinity.leading,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 100,
-                            child: TextField(
-                              controller: _emptyRoundPriceController,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                prefixText: "PHP ",
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: CheckboxListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: const Text("Empty Slim Gallon"),
-                              value: _offerEmptySlim,
-                              onChanged: (val) => setState(() => _offerEmptySlim = val ?? false),
-                              controlAffinity: ListTileControlAffinity.leading,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 100,
-                            child: TextField(
-                              controller: _emptySlimPriceController,
                               keyboardType: TextInputType.number,
                               decoration: const InputDecoration(
                                 prefixText: "PHP ",
@@ -2291,9 +2328,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             backgroundColor: Colors.grey[300],
                             foregroundColor: Colors.black,
                             minimumSize: const Size(double.infinity, 48),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           child: const Text("Register"),
                         ),
@@ -2466,6 +2501,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       await user.reauthenticateWithCredential(cred);
       if (_newPasswordController.text == _confirmPasswordController.text) {
         await user.updatePassword(_newPasswordController.text);
+       
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Password changed successfully')),
         );

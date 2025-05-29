@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -9,6 +9,8 @@ import 'dart:math';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import '../login_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({super.key});
 
@@ -19,8 +21,8 @@ class CustomerHomeScreen extends StatefulWidget {
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   int _currentIndex = 0;
   bool _isLoading = false; // Add loading state
-  final FirebaseAuth auth = FirebaseAuth.instance;
-  User? user;
+  final firebase_auth.FirebaseAuth auth = firebase_auth.FirebaseAuth.instance;
+  firebase_auth.User? user;
 
   final List<Widget> _screens = [
     const HomeScreen(), // Changed from DeliveryScreen to NotificationsScreen
@@ -104,8 +106,8 @@ class HomeScreen extends StatelessWidget {
   static bool _noAddressDialogShown = false;
 
   Future<String> _getCustomerName() async {
-    final FirebaseAuth auth = FirebaseAuth.instance;
-    final User? user = auth.currentUser;
+    final firebase_auth.FirebaseAuth auth = firebase_auth.FirebaseAuth.instance;
+    final firebase_auth.User? user = auth.currentUser;
 
     if (user != null) {
       final DocumentSnapshot customerDoc = await FirebaseFirestore.instance
@@ -121,8 +123,8 @@ class HomeScreen extends StatelessWidget {
   }
 
   Future<List<Map<String, dynamic>>> _getNearestStations() async {
-    final FirebaseAuth auth = FirebaseAuth.instance;
-    final User? user = auth.currentUser;
+    final firebase_auth.FirebaseAuth auth = firebase_auth.FirebaseAuth.instance;
+    final firebase_auth.User? user = auth.currentUser;
 
     if (user == null) throw Exception('User not logged in.');
 
@@ -954,8 +956,8 @@ class _MyCartScreenState extends State<MyCartScreen> {
           }
 
           // --- Add order to Firestore after successful payment ---
-          final FirebaseAuth auth = FirebaseAuth.instance;
-          final User? user = auth.currentUser;
+          final firebase_auth.FirebaseAuth auth = firebase_auth.FirebaseAuth.instance;
+          final firebase_auth.User? user = auth.currentUser;
           if (user != null) {
             // Calculate total price from lineItems
             double totalPrice = 0;
@@ -1039,7 +1041,7 @@ class _MyCartScreenState extends State<MyCartScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
     if (user == null) {
       return const Scaffold(
         body: Center(child: Text('No user logged in.')),
@@ -1448,8 +1450,8 @@ class NotificationsScreen extends StatelessWidget {
   NotificationsScreen({super.key});
 
   Future<String> _getCustomerName() async {
-    final FirebaseAuth auth = FirebaseAuth.instance;
-    final User? user = auth.currentUser;
+    final firebase_auth.FirebaseAuth auth = firebase_auth.FirebaseAuth.instance;
+    final firebase_auth.User? user = auth.currentUser;
 
     if (user != null) {
       final DocumentSnapshot customerDoc = await FirebaseFirestore.instance
@@ -1569,140 +1571,151 @@ class StationDetailsScreen extends StatefulWidget {
 
 class _StationDetailsScreenState extends State<StationDetailsScreen> {
   String? _dynamicAddress;
-  // Add a map to track quantity per product (by product doc id)
-  final Map<String, int> _productQuantities = {};
-Future<void> _payWithPayMongo({
-  required String name,
-  required double price,
-  required int quantity,
-  required BuildContext context,
-}) async {
-  const secretKey = 'sk_test_tqWtvE1KNtAwrEYejUhbkUdy'; // Replace with your live key for production
-  final url = Uri.parse('https://api.paymongo.com/v1/checkout_sessions');
-  final amount = (price * 100).toInt(); // Convert PHP to centavos
+  final Map<String, int> _offerQuantities = {};
 
-  final body = jsonEncode({
-    "data": {
-      "attributes": {
-        "billing": {
-          "name": name,
-        },
-        "send_email_receipt": false,
-        "show_description": false,
-        "show_line_items": true,
-        "line_items": [
-          {
-            "currency": "PHP",
-            "amount": amount,
-            "name": name,
-            "quantity": quantity,
-          }
-        ],
-        "payment_method_types": ["gcash", "card"],
-        "success_url": "https://example.com/success",
-        "cancel_url": "https://example.com/cancel"
-      }
+  // Add: Fetch compliance statuses for this station
+  Future<Map<String, dynamic>?> _fetchComplianceStatuses() async {
+    final doc = await FirebaseFirestore.instance
+        .collection('compliance_uploads')
+        .doc(widget.stationOwnerId)
+        .get();
+    if (doc.exists) {
+      return doc.data();
     }
-  });
+    return null;
+  }
 
-  try {
-    final response = await http.post(
-      url,
-      headers: {
-        'Authorization': 'Basic ${base64Encode(utf8.encode('$secretKey:'))}',
-        'Content-Type': 'application/json',
-      },
-      body: body,
-    );
+  Future<void> _payWithPayMongo({
+    required String name,
+    required double price,
+    required int quantity,
+    required BuildContext context,
+  }) async {
+    const secretKey = 'sk_test_tqWtvE1KNtAwrEYejUhbkUdy'; // Replace with your live key for production
+    final url = Uri.parse('https://api.paymongo.com/v1/checkout_sessions');
+    final amount = (price * 100).toInt(); // Convert PHP to centavos
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final data = jsonDecode(response.body);
-      final checkoutUrl = data['data']['attributes']?['checkout_url'];
+    final body = jsonEncode({
+      "data": {
+        "attributes": {
+          "billing": {
+            "name": name,
+          },
+          "send_email_receipt": false,
+          "show_description": false,
+          "show_line_items": true,
+          "line_items": [
+            {
+              "currency": "PHP",
+              "amount": amount,
+              "name": name,
+              "quantity": quantity,
+            }
+          ],
+          "payment_method_types": ["gcash", "card"],
+          "success_url": "https://example.com/success",
+          "cancel_url": "https://example.com/cancel"
+        }
+      }
+    });
 
-      if (checkoutUrl != null && checkoutUrl is String) {
-        final uri = Uri.parse(checkoutUrl);
-        try {
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          } else {
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Basic ${base64Encode(utf8.encode('$secretKey:'))}',
+          'Content-Type': 'application/json',
+        },
+        body: body,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        final checkoutUrl = data['data']['attributes']?['checkout_url'];
+
+        if (checkoutUrl != null && checkoutUrl is String) {
+          final uri = Uri.parse(checkoutUrl);
+          try {
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            } else {
+              // ignore: deprecated_member_use
+              if (await canLaunch(checkoutUrl)) {
+                // ignore: deprecated_member_use
+                await launch(checkoutUrl);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Could not launch the payment URL.')),
+                );
+              }
+            }
+          } catch (e) {
             // ignore: deprecated_member_use
             if (await canLaunch(checkoutUrl)) {
               // ignore: deprecated_member_use
               await launch(checkoutUrl);
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Could not launch the payment URL.')),
+                SnackBar(content: Text('Could not launch the payment URL: $e')),
               );
             }
           }
-        } catch (e) {
-          // ignore: deprecated_member_use
-          if (await canLaunch(checkoutUrl)) {
-            // ignore: deprecated_member_use
-            await launch(checkoutUrl);
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not launch the payment URL: $e')),
-            );
+
+          // --- Add order to Firestore after successful payment ---
+          final firebase_auth.FirebaseAuth auth = firebase_auth.FirebaseAuth.instance;
+          final firebase_auth.User? user = auth.currentUser;
+          if (user != null) {
+            // Generate a custom OrderID
+            final String orderId = 'ORD-${DateTime.now().millisecondsSinceEpoch}-${user.uid.substring(0, 5)}';
+
+            final orderData = {
+              'orderId': orderId, // Use the custom OrderID
+              'customerId': user.uid,
+              'productOffer': name,
+              'status': 'Pending',
+              'timestamp': FieldValue.serverTimestamp(),
+              'stationOwnerId': widget.stationOwnerId,
+              'quantity': quantity,
+              'price': price,
+            };
+
+            // Add order to the global orders collection
+            await FirebaseFirestore.instance.collection('orders').doc(orderId).set(orderData);
+
+            // Add order to the station owner's orders subcollection
+            await FirebaseFirestore.instance
+                .collection('station_owners')
+                .doc(widget.stationOwnerId)
+                .collection('orders')
+                .doc(orderId)
+                .set(orderData);
           }
+          // ------------------------------------------------------
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Checkout URL missing in response.')),
+          );
         }
-
-        // --- Add order to Firestore after successful payment ---
-        final FirebaseAuth auth = FirebaseAuth.instance;
-        final User? user = auth.currentUser;
-        if (user != null) {
-          // Generate a custom OrderID
-          final String orderId = 'ORD-${DateTime.now().millisecondsSinceEpoch}-${user.uid.substring(0, 5)}';
-
-          final orderData = {
-            'orderId': orderId, // Use the custom OrderID
-            'customerId': user.uid,
-            'productOffer': name,
-            'status': 'Pending',
-            'timestamp': FieldValue.serverTimestamp(),
-            'stationOwnerId': widget.stationOwnerId,
-            'quantity': quantity,
-            'price': price,
-          };
-
-          // Add order to the global orders collection
-          await FirebaseFirestore.instance.collection('orders').doc(orderId).set(orderData);
-
-          // Add order to the station owner's orders subcollection
-          await FirebaseFirestore.instance
-              .collection('station_owners')
-              .doc(widget.stationOwnerId)
-              .collection('orders')
-              .doc(orderId)
-              .set(orderData);
-        }
-        // ------------------------------------------------------
       } else {
+        final errorData = jsonDecode(response.body);
+        String errorMsg = 'Failed to create checkout session';
+        if (errorData is Map &&
+            errorData.containsKey('errors') &&
+            errorData['errors'] is List &&
+            errorData['errors'].isNotEmpty) {
+          errorMsg = errorData['errors'][0]['detail'] ?? errorMsg;
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Checkout URL missing in response.')),
+          SnackBar(content: Text(errorMsg)),
         );
       }
-    } else {
-      final errorData = jsonDecode(response.body);
-      String errorMsg = 'Failed to create checkout session';
-      if (errorData is Map &&
-          errorData.containsKey('errors') &&
-          errorData['errors'] is List &&
-          errorData['errors'].isNotEmpty) {
-        errorMsg = errorData['errors'][0]['detail'] ?? errorMsg;
-      }
-
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMsg)),
+        SnackBar(content: Text('An error occurred: $e')),
       );
     }
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('An error occurred: $e')),
-    );
   }
-}
-
 
   @override
   void initState() {
@@ -1734,8 +1747,8 @@ Future<void> _payWithPayMongo({
 
   Future<void> _placeOrder(BuildContext context, String productOffer, String stationOwnerId) async {
     try {
-      final FirebaseAuth auth = FirebaseAuth.instance;
-      final User? user = auth.currentUser;
+      final firebase_auth.FirebaseAuth auth = firebase_auth.FirebaseAuth.instance;
+      final firebase_auth.User? user = auth.currentUser;
 
       if (user != null) {
         // Generate a custom OrderID
@@ -1840,8 +1853,6 @@ Future<void> _payWithPayMongo({
             ),
           ),
         );
-
-
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User not logged in.')),
@@ -1931,6 +1942,117 @@ Future<void> _payWithPayMongo({
                       Text('Address: ${_dynamicAddress ?? "Loading..."}',
                           style: const TextStyle(color: Colors.black54)),
                       const SizedBox(height: 16),
+
+                      // --- Compliance Status Card ---
+                      FutureBuilder<Map<String, dynamic>?>(
+                        future: _fetchComplianceStatuses(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+                          final data = snapshot.data;
+                          if (data == null) {
+                            return const SizedBox(); // No compliance data
+                          }
+                          // Only show the requested statuses
+                          final statusFields = [
+                            {'label': 'Finished Bacteriological', 'key': 'finished_bacteriological_status'},
+                            {'label': 'Finished Physical Chemical', 'key': 'finished_physical_chemical_status'},
+                            {'label': 'Sanitary Permit', 'key': 'sanitary_permit_status'},
+                            {'label': 'Source Bacteriological', 'key': 'source_bacteriological_status'},
+                            {'label': 'Source Physical Chemical', 'key': 'source_physical_chemical_status'},
+                          ];
+                          return Card(
+                            elevation: 3,
+                            margin: const EdgeInsets.only(bottom: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            child: Padding(
+                              padding: const EdgeInsets.all(14.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Compliance Status',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: Color(0xFF1565C0),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ...statusFields.map((f) {
+                                    final status = data[f['key']]?.toString() ?? 'N/A';
+                                    Color color;
+                                    if (status.toLowerCase() == 'passed') {
+                                      color = Colors.green;
+                                    } else if (status.toLowerCase() == 'pending') {
+                                      color = Colors.orange;
+                                    } else if (status.toLowerCase() == 'failed') {
+                                      color = Colors.red;
+                                    } else {
+                                      color = Colors.grey;
+                                    }
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                      child: Row(
+                                        children: [
+                                          Expanded(child: Text(f['label']!, style: const TextStyle(fontSize: 14))),
+                                          Text(
+                                            status[0].toUpperCase() + status.substring(1),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: color,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          ElevatedButton(
+                                            onPressed: () {
+                                              // Show a dialog with more info or a placeholder
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) => AlertDialog(
+                                                  title: Text('${f['label']} Document'),
+                                                  content: Text(
+                                                    'No document preview available.\n\nStatus: ${status[0].toUpperCase() + status.substring(1)}',
+                                                  ),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () => Navigator.pop(context),
+                                                      child: const Text('Close'),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.blue.shade50,
+                                              foregroundColor: Colors.blue,
+                                              minimumSize: const Size(0, 32),
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              elevation: 0,
+                                              side: const BorderSide(color: Color(0xFF1565C0)),
+                                            ),
+                                            child: const Text('View', style: TextStyle(fontSize: 13)),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      // --- End Compliance Status Card ---
+
                       const Text(
                         'Products Available',
                         style: TextStyle(
@@ -1950,7 +2072,6 @@ Future<void> _payWithPayMongo({
                           if (snapshot.connectionState == ConnectionState.waiting) {
                             return const Center(child: CircularProgressIndicator());
                           }
-                          // Check if products collection exists or has data
                           if (!snapshot.hasData || snapshot.data == null || snapshot.data!.docs.isEmpty) {
                             return const Center(
                               child: Padding(
@@ -1959,30 +2080,165 @@ Future<void> _payWithPayMongo({
                               ),
                             );
                           }
-
                           final products = snapshot.data!.docs;
-                          // Only filter for products with a name (remove productOffer logic)
-                          final validProducts = products.where((product) {
-                            final data = product.data() as Map<String, dynamic>?;
-                            return data != null && data.containsKey('name') && data['name'] != null;
-                          }).toList();
-                          if (validProducts.isEmpty) {
-                            return const Center(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 20),
-                                child: Text('No products available.'),
-                              ),
-                            );
-                          }
                           return Column(
-                            children: validProducts.map((product) {
+                            children: products.map((product) {
                               final data = product.data() as Map<String, dynamic>;
-                              final name = data['name'] ?? 'N/A';
-                              final price = data['price'] != null ? '₱ ${data['price'].toStringAsFixed(2)}' : 'N/A';
-                              final priceValue = double.tryParse(data['price']?.toString() ?? '');
-                              final type = data['type'] ?? 'N/A';
                               final productId = product.id;
-                              final int quantity = _productQuantities[productId] ?? 1;
+                              final waterType = data['waterType'] ?? 'N/A';
+                              final offers = data['offers'] ?? {};
+                              final delivery = data['delivery'] ?? {};
+                              final offerWidgets = <Widget>[];
+
+                              // Helper to get quantity for a specific offer
+                              int getQty(String offerKey) => _offerQuantities['$productId|$offerKey'] ?? 1;
+
+                              // Helper to set quantity for a specific offer
+                              void setQty(String offerKey, int qty) {
+                                setState(() {
+                                  _offerQuantities['$productId|$offerKey'] = qty;
+                                });
+                              }
+
+                              // Add Round offer
+                              if (offers['round'] != null) {
+                                final price = offers['round'] is num ? offers['round'].toDouble() : double.tryParse(offers['round'].toString()) ?? 0;
+                                final offerKey = 'round';
+                                offerWidgets.add(
+                                  _buildOfferRow(
+                                    label: 'Round',
+                                    price: price,
+                                    qty: getQty(offerKey),
+                                    onQtyChanged: (q) => setQty(offerKey, q),
+                                    onAddToCart: () async {
+                                      await _addToCart(
+                                        context: context,
+                                        productId: productId,
+                                        offerLabel: 'Round',
+                                        price: price,
+                                        qty: getQty(offerKey),
+                                        type: waterType,
+                                      );
+                                    },
+                                    onOrderNow: () async {
+                                      await _payWithPayMongo(
+                                        name: '$waterType - Round',
+                                        price: price,
+                                        quantity: getQty(offerKey),
+                                        context: context,
+                                      );
+                                    },
+                                  ),
+                                );
+                              }
+                              // Add Slim offer
+                              if (offers['slim'] != null) {
+                                final price = offers['slim'] is num ? offers['slim'].toDouble() : double.tryParse(offers['slim'].toString()) ?? 0;
+                                final offerKey = 'slim';
+                                offerWidgets.add(
+                                  _buildOfferRow(
+                                    label: 'Slim',
+                                    price: price,
+                                    qty: getQty(offerKey),
+                                    onQtyChanged: (q) => setQty(offerKey, q),
+                                    onAddToCart: () async {
+                                      await _addToCart(
+                                        context: context,
+                                        productId: productId,
+                                        offerLabel: 'Slim',
+                                        price: price,
+                                        qty: getQty(offerKey),
+                                        type: waterType,
+                                      );
+                                    },
+                                    onOrderNow: () async {
+                                      await _payWithPayMongo(
+                                        name: '$waterType - Slim',
+                                        price: price,
+                                        quantity: getQty(offerKey),
+                                        context: context,
+                                      );
+                                    },
+                                  ),
+                                );
+                              }
+                              // Add Other1 offer
+                              if (offers['other1'] != null && offers['other1']['label'] != null) {
+                                final label = offers['other1']['label'] ?? 'Other';
+                                final price = offers['other1']['price'] is num
+                                    ? offers['other1']['price'].toDouble()
+                                    : double.tryParse(offers['other1']['price'].toString()) ?? 0;
+                                final offerKey = 'other1';
+                                offerWidgets.add(
+                                  _buildOfferRow(
+                                    label: label,
+                                    price: price,
+                                    qty: getQty(offerKey),
+                                    onQtyChanged: (q) => setQty(offerKey, q),
+                                    onAddToCart: () async {
+                                      await _addToCart(
+                                        context: context,
+                                        productId: productId,
+                                        offerLabel: label,
+                                        price: price,
+                                        qty: getQty(offerKey),
+                                        type: waterType,
+                                      );
+                                    },
+                                    onOrderNow: () async {
+                                      await _payWithPayMongo(
+                                        name: '$waterType - $label',
+                                        price: price,
+                                        quantity: getQty(offerKey),
+                                        context: context,
+                                      );
+                                    },
+                                  ),
+                                );
+                              }
+                              // Add Other2 offer
+                              if (offers['other2'] != null && offers['other2']['label'] != null) {
+                                final label = offers['other2']['label'] ?? 'Other';
+                                final price = offers['other2']['price'] is num
+                                    ? offers['other2']['price'].toDouble()
+                                    : double.tryParse(offers['other2']['price'].toString()) ?? 0;
+                                final offerKey = 'other2';
+                                offerWidgets.add(
+                                  _buildOfferRow(
+                                    label: label,
+                                    price: price,
+                                    qty: getQty(offerKey),
+                                    onQtyChanged: (q) => setQty(offerKey, q),
+                                    onAddToCart: () async {
+                                      await _addToCart(
+                                        context: context,
+                                        productId: productId,
+                                        offerLabel: label,
+                                        price: price,
+                                        qty: getQty(offerKey),
+                                        type: waterType,
+                                      );
+                                    },
+                                    onOrderNow: () async {
+                                      await _payWithPayMongo(
+                                        name: '$waterType - $label',
+                                        price: price,
+                                        quantity: getQty(offerKey),
+                                        context: context,
+                                      );
+                                    },
+                                  ),
+                                );
+                              }
+
+                              // Delivery info
+                              String deliveryText = '';
+                              if (delivery.isNotEmpty) {
+                                final available = delivery['available'] ?? '';
+                                final price = delivery['price'];
+                                deliveryText = 'Delivery: $available'
+                                    '${price != null ? ' (₱${price.toString()})' : ''}';
+                              }
 
                               return Card(
                                 elevation: 4,
@@ -1994,141 +2250,18 @@ Future<void> _payWithPayMongo({
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        name,
+                                        waterType,
                                         style: const TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      const SizedBox(height: 6),
-                                      Text("Price: $price"),
-                                      Text("Type: $type"),
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        children: [
-                                          const Text("Quantity:"),
-                                          const SizedBox(width: 8),
-                                          IconButton(
-                                            icon: const Icon(Icons.remove),
-                                            onPressed: quantity > 1
-                                                ? () {
-                                                    setState(() {
-                                                      _productQuantities[productId] = quantity - 1;
-                                                    });
-                                                  }
-                                                : null,
-                                          ),
-                                          Text(
-                                            quantity.toString(),
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(Icons.add),
-                                            onPressed: () {
-                                              setState(() {
-                                                _productQuantities[productId] = quantity + 1;
-                                              });
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.end,
-                                        children: [
-                                          ElevatedButton(
-                                            onPressed: () async {
-                                              // Add to Cart logic
-                                              final user = FirebaseAuth.instance.currentUser;
-                                              if (user == null) {
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  const SnackBar(content: Text('User not logged in.')),
-                                                );
-                                                return;
-                                              }
-                                              try {
-                                                // Check if product already exists in cart
-                                                final cartQuery = await FirebaseFirestore.instance
-                                                    .collection('customers')
-                                                    .doc(user.uid)
-                                                    .collection('cart')
-                                                    .where('productId', isEqualTo: productId)
-                                                    .where('stationOwnerId', isEqualTo: widget.stationOwnerId)
-                                                    .limit(1)
-                                                    .get();
-
-                                                if (cartQuery.docs.isNotEmpty) {
-                                                  // Update quantity if exists
-                                                  final cartDoc = cartQuery.docs.first;
-                                                  final prevQty = (cartDoc['quantity'] ?? 1) as int;
-                                                  await FirebaseFirestore.instance
-                                                      .collection('customers')
-                                                      .doc(user.uid)
-                                                      .collection('cart')
-                                                      .doc(cartDoc.id)
-                                                      .update({
-                                                    'quantity': prevQty + quantity,
-                                                    'timestamp': FieldValue.serverTimestamp(),
-                                                  });
-                                                } else {
-                                                  // Add new cart item
-                                                  await FirebaseFirestore.instance
-                                                      .collection('customers')
-                                                      .doc(user.uid)
-                                                      .collection('cart')
-                                                      .add({
-                                                    'productId': productId,
-                                                    'stationOwnerId': widget.stationOwnerId,
-                                                    'name': name,
-                                                    'price': priceValue,
-                                                    'quantity': quantity,
-                                                    'type': type,
-                                                    'timestamp': FieldValue.serverTimestamp(),
-                                                  });
-                                                }
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  const SnackBar(content: Text('Added to cart!')),
-                                                );
-                                              } catch (e) {
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(content: Text('Failed to add to cart: $e')),
-                                                );
-                                              }
-                                            },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.grey.shade300,
-                                              foregroundColor: Colors.blue.shade900,
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                            ),
-                                            child: const Text("Add to Cart"),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          ElevatedButton(
-                                            onPressed: () async {
-                                              if (priceValue != null) {
-                                                await _payWithPayMongo(
-                                                  name: name,
-                                                  price: priceValue,
-                                                  quantity: quantity,
-                                                  context: context,
-                                                );
-                                              } else {
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  const SnackBar(content: Text('Invalid price')),
-                                                );
-                                              }
-                                            },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: const Color(0xFF1565C0),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                            ),
-                                            child: const Text("Order Now"),
-                                          ),
-                                        ],
-                                      ),
+                                      if (deliveryText.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 4.0, bottom: 8.0),
+                                          child: Text(deliveryText, style: const TextStyle(fontSize: 13, color: Colors.black54)),
+                                        ),
+                                      ...offerWidgets,
                                     ],
                                   ),
                                 ),
@@ -2215,8 +2348,255 @@ Future<void> _payWithPayMongo({
       ),
     );
   }
-}
 
+  // Helper widget for each offer row
+  Widget _buildOfferRow({
+    required String label,
+    required double price,
+    required int qty,
+    required ValueChanged<int> onQtyChanged,
+    required VoidCallback onAddToCart,
+    required VoidCallback onOrderNow,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '$label: ₱${price.toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 15),
+            ),
+          ),
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.remove),
+                onPressed: qty > 1 ? () => onQtyChanged(qty - 1) : null,
+              ),
+              Text(qty.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              IconButton(
+                icon: const Icon(Icons.add),
+                onPressed: () => onQtyChanged(qty + 1),
+              ),
+            ],
+          ),
+          ElevatedButton(
+            onPressed: onAddToCart,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey.shade300,
+              foregroundColor: Colors.blue.shade900,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text("Add to Cart"),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: onOrderNow,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1565C0),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text("Order Now"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper to add to cart
+  Future<void> _addToCart({
+    required BuildContext context,
+    required String productId,
+    required String offerLabel,
+    required double price,
+    required int qty,
+    required String type,
+  }) async {
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User not logged in.')),
+      );
+      return;
+    }
+   
+    try {
+      // Check if product+offer already exists in cart
+      final cartQuery = await FirebaseFirestore.instance
+          .collection('customers')
+          .doc(user.uid)
+          .collection('cart')
+          .where('productId', isEqualTo: productId)
+          .where('stationOwnerId', isEqualTo: widget.stationOwnerId)
+          .where('offerLabel', isEqualTo: offerLabel)
+          .limit(1)
+          .get();
+
+      if (cartQuery.docs.isNotEmpty) {
+        // Update quantity if exists
+        final cartDoc = cartQuery.docs.first;
+        final prevQty = (cartDoc['quantity'] ?? 1) as int;
+        await FirebaseFirestore.instance
+            .collection('customers')
+            .doc(user.uid)
+            .collection('cart')
+            .doc(cartDoc.id)
+            .update({
+          'quantity': prevQty + qty,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+      } else {
+        // Add new cart item
+
+        await FirebaseFirestore.instance
+            .collection('customers')
+            .doc(user.uid)
+            .collection('cart')
+            .add({
+          'productId': productId,
+          'stationOwnerId': widget.stationOwnerId,
+          'name': '$type - $offerLabel',
+          'offerLabel': offerLabel,
+          'price': price,
+          'quantity': qty,
+          'type': type,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Added to cart!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to add to cart: $e')),
+      );
+    }
+  }
+
+  // Supabase compliance file fetching
+  List<dynamic> uploadedFiles = [];
+  bool isLoading = false;
+
+  Future<void> fetchComplianceFiles(String docId) async {
+    setState(() {
+      isLoading = true;
+    });
+    try {
+      final response = await Supabase.instance.client.storage
+          .from('compliance_docs')
+          .list(path: 'uploads/$docId');
+      setState(() {
+        uploadedFiles = response;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      print('Error fetching files from Supabase: $e');
+    }
+  }
+
+  String _extractCategoryLabel(String fileName, String docId) {
+    final prefix = '${docId}_';
+    if (fileName.startsWith(prefix)) {
+      final rest = fileName.substring(prefix.length);
+      final category = rest.split('.').first;
+      return category
+          .replaceAll('_', ' ')
+          .split(' ')
+          .map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1)}' : '')
+          .join(' ');
+    }
+    return 'Unknown Category';
+  }
+
+  // Dummy status extraction for demonstration
+  String _extractStatus(String fileName) {
+    return "Passed";
+  }
+
+  // Show file in a modal dialog
+  void _showFileModal(BuildContext context, String fileUrl, String fileName) {
+    final extension = fileName.split('.').last.toLowerCase();
+    final isImage = ['png', 'jpg', 'jpeg'].contains(extension);
+    final isPdf = extension == 'pdf';
+    final isWord = extension == 'doc' || extension == 'docx';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: isImage
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(fileName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      Image.network(
+                        fileUrl,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Text('Failed to load image'),
+                            ),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Close'),
+                      ),
+                    ],
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(fileName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 16),
+                      Icon(
+                        isPdf ? Icons.picture_as_pdf : Icons.description,
+                        color: isPdf ? Colors.red : Colors.blue,
+                        size: 48,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(isPdf ? 'PDF Document' : 'Word Document'),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.open_in_new),
+                        label: const Text('Open File'),
+                        onPressed: () async {
+                          if (await canLaunchUrl(Uri.parse(fileUrl))) {
+                            await launchUrl(Uri.parse(fileUrl), mode: LaunchMode.externalApplication);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Could not open file')),
+                            );
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Close'),
+                      ),
+                    ],
+                  ),
+          ),
+        );
+      },
+    );
+  }
+}
 
 class StationsScreen extends StatefulWidget {
   StationsScreen({super.key});
@@ -2277,8 +2657,8 @@ class _StationsScreenState extends State<StationsScreen> {
 
   Future<void> _fetchStations() async {
     try {
-      final FirebaseAuth auth = FirebaseAuth.instance;
-      final User? user = auth.currentUser;
+      final firebase_auth.FirebaseAuth auth = firebase_auth.FirebaseAuth.instance;
+      final firebase_auth.User? user = auth.currentUser;
       double? customerLat;
       double? customerLon;
 
@@ -2326,8 +2706,8 @@ class _StationsScreenState extends State<StationsScreen> {
   }
 
   Future<String> _getCustomerName() async {
-    final FirebaseAuth auth = FirebaseAuth.instance;
-    final User? user = auth.currentUser;
+    final firebase_auth.FirebaseAuth auth = firebase_auth.FirebaseAuth.instance;
+    final firebase_auth.User? user = auth.currentUser;
 
     if (user != null) {
       final DocumentSnapshot customerDoc = await FirebaseFirestore.instance
@@ -2674,8 +3054,8 @@ class OrdersScreen extends StatelessWidget {
   final DateFormat _dateFormat = DateFormat('MMM dd, yyyy – hh:mm a');
 
   Future<List<Map<String, dynamic>>> _fetchOrders() async {
-    final FirebaseAuth auth = FirebaseAuth.instance;
-    final User? user = auth.currentUser;
+    final firebase_auth.FirebaseAuth auth = firebase_auth.FirebaseAuth.instance;
+    final firebase_auth.User? user = auth.currentUser;
 
     if (user == null) throw Exception('User not logged in.');
 
@@ -3059,7 +3439,7 @@ class ProfileScreen extends StatelessWidget {
               MaterialPageRoute(builder: (context) => const MyAddressesScreen()),
             );
           } else if (title == 'Log Out') {
-            await FirebaseAuth.instance.signOut();
+            await firebase_auth.FirebaseAuth.instance.signOut();
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (context) => LoginScreen()),
             );
@@ -3079,7 +3459,7 @@ class MyAddressesScreen extends StatefulWidget {
 }
 
 class _MyAddressesScreenState extends State<MyAddressesScreen> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
   String? _defaultAddressId;
 
   @override
@@ -3194,7 +3574,7 @@ class _MyAddressesScreenState extends State<MyAddressesScreen> {
   Widget _buildAddressCard(
       QueryDocumentSnapshot address, {
       required bool isDefault,
-      required User user,
+      required firebase_auth.User user,
     }) {
     return Card(
       elevation: 4,
@@ -3309,7 +3689,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   }
 
   Future<void> _saveAddress() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
     if (user != null && _addressController.text.isNotEmpty) {
       final addressData = {
         'address': _addressController.text,
@@ -3395,7 +3775,6 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchAddress(_currentPosition);
   }
 
   Future<void> _fetchAddress(LatLng position) async {
