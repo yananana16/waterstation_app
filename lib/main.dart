@@ -34,17 +34,26 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Water Station App',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        scaffoldBackgroundColor: Colors.white,
-      ),
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const SplashScreen(),
-        '/stationOwnerRegistration': (context) => const StationOwnerRegistrationScreen(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Center(
+          child: SizedBox(
+            width: 430, // Typical mobile width (e.g., iPhone 14 Pro Max)
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              title: 'Water Station App',
+              theme: ThemeData(
+                primarySwatch: Colors.blue,
+                scaffoldBackgroundColor: Colors.white,
+              ),
+              initialRoute: '/',
+              routes: {
+                '/': (context) => const SplashScreen(),
+                '/stationOwnerRegistration': (context) => const StationOwnerRegistrationScreen(),
+              },
+            ),
+          ),
+        );
       },
     );
   }
